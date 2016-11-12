@@ -1,0 +1,38 @@
+#define MAX_KEY_SIZE 20
+#define MAX_VAL_SIZE 20
+#define MAX_KEY_USER 20
+
+#define FALSE 0
+#define TRUE  1
+
+struct key_val {
+	char key[MAX_KEY_SIZE];
+	char val[MAX_VAL_SIZE];
+};
+
+struct kv_list {
+	struct key_val  kv;
+	struct kv_list *next;
+};
+
+struct kv_list_h {
+	int            num_keys;
+	struct kv_list *data;
+};
+
+struct key_vault {
+	int               num_users;
+	struct kv_list_h *ukey_data;
+};
+
+extern struct key_vault v;
+
+int  init_vault   (int size);
+void dump_vault   (void);
+void close_vault  (void);
+int  insert_pair  (int uid, char *key, char *val);
+int  retrieve_val (int uid, char *key, char val[MAX_KEY_USER][MAX_VAL_SIZE]);
+
+void free_list(struct kv_list *l);
+int  insert_in_list(struct kv_list *l, char *key, char *val);
+
