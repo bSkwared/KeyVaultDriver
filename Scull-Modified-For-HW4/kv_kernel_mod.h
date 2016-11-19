@@ -1,5 +1,5 @@
 /*
- * scull.h -- definitions for the char module
+ * kv_mod.h -- definitions for the char module
  *
  * Copyright (C) 2001 Alessandro Rubini and Jonathan Corbet
  * Copyright (C) 2001 O'Reilly & Associates
@@ -12,7 +12,7 @@
  * by O'Reilly & Associates.   No warranty is attached;
  * we cannot take responsibility for errors or fitness for use.
  *
- * $Id: scull.h,v 1.15 2004/11/04 17:51:18 rubini Exp $
+ * $Id: kv_mod.h,v 1.15 2004/11/04 17:51:18 rubini Exp $
  */
 
 #ifndef _SCULL_H_
@@ -27,7 +27,7 @@
 #ifdef SCULL_DEBUG
 #  ifdef __KERNEL__
      /* This one if debugging is on, and kernel space */
-#    define PDEBUG(fmt, args...) printk( KERN_DEBUG "scull: " fmt, ## args)
+#    define PDEBUG(fmt, args...) printk( KERN_DEBUG "kv_mod: " fmt, ## args)
 #  else
      /* This one for user space */
 #    define PDEBUG(fmt, args...) fprintf(stderr, fmt, ## args)
@@ -44,14 +44,14 @@
 #endif
 
 #ifndef SCULL_NR_DEVS
-#define SCULL_NR_DEVS 4    /* scull0 through scull3 */
+#define SCULL_NR_DEVS 4    /* kv_mod0 through kv_mod3 */
 #endif
 
 /*
  * The bare device is a variable-length region of memory.
  * Use a linked list of indirect blocks.
  *
- * "scull_dev->data" points to an array of pointers, each
+ * "kv_mod_dev->data" points to an array of pointers, each
  * pointer refers to a memory area of SCULL_QUANTUM bytes.
  *
  * The array (quantum-set) is SCULL_QSET long.
@@ -65,15 +65,15 @@
 #endif
 
 /*
- * Representation of scull quantum sets.
+ * Representation of kv_mod quantum sets.
  */
-struct scull_qset {
+struct kv_mod_qset {
 	void              **data;      /* an array or pointers to bytes    */
-	struct scull_qset  *next;      /* the next qset in the linked-list */
+	struct kv_mod_qset  *next;      /* the next qset in the linked-list */
 };
 
-struct scull_dev {
-	struct scull_qset  *data;      /* Pointer to first quantum set     */
+struct kv_mod_dev {
+	struct kv_mod_qset  *data;      /* Pointer to first quantum set     */
 	int                 quantum;   /* the current quantum size         */
 	int                 qset;      /* the current array size           */
 	unsigned long       size;      /* amount of data stored here       */
@@ -90,21 +90,21 @@ struct scull_dev {
 /*
  * The different configurable parameters
  */
-extern int scull_major;
-extern int scull_nr_devs;
-extern int scull_quantum;
-extern int scull_qset;
+extern int kv_mod_major;
+extern int kv_mod_nr_devs;
+extern int kv_mod_quantum;
+extern int kv_mod_qset;
 
 /*
  * Prototypes for shared functions
  */
-int     scull_trim  (struct scull_dev *dev);
-ssize_t scull_read  (struct file *filp, char __user *buf, size_t count,
+int     kv_mod_trim  (struct kv_mod_dev *dev);
+ssize_t kv_mod_read  (struct file *filp, char __user *buf, size_t count,
                      loff_t *f_pos);
-ssize_t scull_write (struct file *filp, const char __user *buf, size_t count,
+ssize_t kv_mod_write (struct file *filp, const char __user *buf, size_t count,
                      loff_t *f_pos);
-loff_t  scull_llseek(struct file *filp, loff_t off, int whence);
-long    scull_ioctl (struct file *filp, unsigned int cmd, unsigned long arg);
+loff_t  kv_mod_llseek(struct file *filp, loff_t off, int whence);
+long    kv_mod_ioctl (struct file *filp, unsigned int cmd, unsigned long arg);
 
 
 /*

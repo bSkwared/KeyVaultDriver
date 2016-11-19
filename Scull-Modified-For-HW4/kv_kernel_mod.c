@@ -1,5 +1,5 @@
 /*
- * scull.c -- the bare scull char module
+ * kv_mod.c -- the bare kv_mod char module
  *
  * Copyright (C) 2001 Alessandro Rubini and Jonathan Corbet
  * Copyright (C) 2001 O'Reilly & Associates
@@ -35,30 +35,30 @@
 /*
  * Our parameters which can be set at load time.
  */
-int scull_major   = SCULL_MAJOR;
-int scull_minor   = 0;
-int scull_nr_devs = SCULL_NR_DEVS;
-int scull_quantum = SCULL_QUANTUM;
-int scull_qset    = SCULL_QSET;
+int kv_mod_major   = 353;
+int kv_mod_minor   = 0;
+int kv_mod_nr_devs = SCULL_NR_DEVS;
+int kv_mod_quantum = SCULL_QUANTUM;
+int kv_mod_qset    = SCULL_QSET;
 
-module_param(scull_major,   int, S_IRUGO);
-module_param(scull_minor,   int, S_IRUGO);
-module_param(scull_nr_devs, int, S_IRUGO);
-module_param(scull_quantum, int, S_IRUGO);
-module_param(scull_qset,    int, S_IRUGO);
+module_param(kv_mod_major,   int, S_IRUGO);
+module_param(kv_mod_minor,   int, S_IRUGO);
+module_param(kv_mod_nr_devs, int, S_IRUGO);
+module_param(kv_mod_quantum, int, S_IRUGO);
+module_param(kv_mod_qset,    int, S_IRUGO);
 
 MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet modified K. Shomper");
 MODULE_LICENSE("Dual BSD/GPL");
 
-/* the set of devices allocated in scull_init_module */
-struct scull_dev *scull_devices = NULL;
+/* the set of devices allocated in kv_mod_init_module */
+struct kv_mod_dev *kv_mod_devices = NULL;
 
 /*
- * Release the memory held by the scull device; must be called with the device
+ * Release the memory held by the kv_mod device; must be called with the device
  * semaphore held.  Requires that dev not be NULL
  */
-int scull_trim(struct scull_dev *dev) {
-	struct scull_qset *next, *dptr;
+int kv_mod_trim(struct kv_mod_dev *dev) {
+	struct kv_mod_qset *next, *dptr;
 	int qset = dev->qset;
 	int i;
 
@@ -85,8 +85,8 @@ int scull_trim(struct scull_dev *dev) {
 
 	/* set the dev fields to initial values */
 	dev->size    = 0;
-	dev->quantum = scull_quantum;
-	dev->qset    = scull_qset;
+	dev->quantum = kv_mod_quantum;
+	dev->qset    = kv_mod_qset;
 	dev->data    = NULL;
 
 	return 0;
@@ -97,13 +97,13 @@ int scull_trim(struct scull_dev *dev) {
  */
 #ifdef SCULL_DEBUG /* use proc only if debugging */
 
-int scull_read_procmem(struct seq_file *s, void *v) {
+int kv_mod_read_procmem(struct seq_file *s, void *v) {
    int i, j;
    int limit = s->size - 80; /* Don't print more than this */
 
-   for (i = 0; i < scull_nr_devs && s->count <= limit; i++) {
-      struct scull_dev   *d = &scull_devices[i];
-      struct scull_qset *qs = d->data;
+   for (i = 0; i < kv_mod_nr_devs && s->count <= limit; i++) {
+      struct kv_mod_dev   *d = &kv_mod_devices[i];
+      struct kv_mod_qset *qs = d->data;
 
       if (down_interruptible(&d->sem)) return -ERESTARTSYS;
 
@@ -122,7 +122,7 @@ int scull_read_procmem(struct seq_file *s, void *v) {
 			}
       }
 
-      up(&scull_devices[i].sem);
+      up(&kv_mod_devices[i].sem);
    }
 
    return 0;
@@ -132,31 +132,31 @@ int scull_read_procmem(struct seq_file *s, void *v) {
  * Here are our sequence iteration methods.  Our "position" is
  * simply the device number.
  */
-static void *scull_seq_start(struct seq_file *s, loff_t *pos) {
-	if (*pos >= scull_nr_devs) return NULL;   /* No more to read */
+static void *kv_mod_seq_start(struct seq_file *s, loff_t *pos) {
+	if (*pos >= kv_mod_nr_devs) return NULL;   /* No more to read */
 
-	return scull_devices + *pos;
+	return kv_mod_devices + *pos;
 }
 
-static void *scull_seq_next(struct seq_file *s, void *v, loff_t *pos) {
+static void *kv_mod_seq_next(struct seq_file *s, void *v, loff_t *pos) {
 	(*pos)++;
-	if (*pos >= scull_nr_devs) return NULL;
-	return scull_devices + *pos;
+	if (*pos >= kv_mod_nr_devs) return NULL;
+	return kv_mod_devices + *pos;
 }
 
-static void scull_seq_stop(struct seq_file *s, void *v) {
+static void kv_mod_seq_stop(struct seq_file *s, void *v) {
 	/* Actually, there's nothing to do here */
 }
 
-static int scull_seq_show(struct seq_file *s, void *v) {
-	struct scull_dev *dev = (struct scull_dev *) v;
-	struct scull_qset *d;
+static int kv_mod_seq_show(struct seq_file *s, void *v) {
+	struct kv_mod_dev *dev = (struct kv_mod_dev *) v;
+	struct kv_mod_qset *d;
 	int i;
 
 	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 
 	seq_printf(s, "\nDevice %i: qset %i, q %i, sz %li\n",
-			         (int) (dev - scull_devices), dev->qset,
+			         (int) (dev - kv_mod_devices), dev->qset,
 			         dev->quantum, dev->size);
 	for (d = dev->data; d; d = d->next) { /* scan the list */
 		seq_printf(s, "  item at %p, qset at %p\n", d, d->data);
@@ -176,39 +176,39 @@ static int scull_seq_show(struct seq_file *s, void *v) {
 /*
  * Tie the sequence operators up.
  */
-static struct seq_operations scull_seq_ops = {
-	.start = scull_seq_start,
-	.next  = scull_seq_next,
-	.stop  = scull_seq_stop,
-	.show  = scull_seq_show
+static struct seq_operations kv_mod_seq_ops = {
+	.start = kv_mod_seq_start,
+	.next  = kv_mod_seq_next,
+	.stop  = kv_mod_seq_stop,
+	.show  = kv_mod_seq_show
 };
 
 /*
  * Now to implement the /proc files we need only make an open
  * method which sets up the sequence operators.
  */
-static int scullmem_proc_open(struct inode *inode, struct file *file) {
-	return single_open(file, scull_read_procmem, NULL);
+static int kv_modmem_proc_open(struct inode *inode, struct file *file) {
+	return single_open(file, kv_mod_read_procmem, NULL);
 }
 
-static int scullseq_proc_open(struct inode *inode, struct file *file) {
-	return seq_open(file, &scull_seq_ops);
+static int kv_modseq_proc_open(struct inode *inode, struct file *file) {
+	return seq_open(file, &kv_mod_seq_ops);
 }
 
 /*
  * Create a set of file operations for our proc files.
  */
-static struct file_operations scullmem_proc_ops = {
+static struct file_operations kv_modmem_proc_ops = {
 	.owner   = THIS_MODULE,
-	.open    = scullmem_proc_open,
+	.open    = kv_modmem_proc_open,
 	.read    = seq_read,
 	.llseek  = seq_lseek,
 	.release = single_release
 };
 
-static struct file_operations scullseq_proc_ops = {
+static struct file_operations kv_modseq_proc_ops = {
 	.owner   = THIS_MODULE,
-	.open    = scullseq_proc_open,
+	.open    = kv_modseq_proc_open,
 	.read    = seq_read,
 	.llseek  = seq_lseek,
 	.release = seq_release
@@ -219,17 +219,17 @@ static struct file_operations scullseq_proc_ops = {
  * Actually create (and remove) the /proc file(s).
  */
 
-static void scull_create_proc(void) {
-	proc_create_data("scullmem", 0 /* default mode */,
-			NULL /* parent dir */, &scullmem_proc_ops,
+static void kv_mod_create_proc(void) {
+	proc_create_data("kv_modmem", 0 /* default mode */,
+			NULL /* parent dir */, &kv_modmem_proc_ops,
 			NULL /* client data */);
-	proc_create("scullseq", 0, NULL, &scullseq_proc_ops);
+	proc_create("kv_modseq", 0, NULL, &kv_modseq_proc_ops);
 }
 
-static void scull_remove_proc(void) {
+static void kv_mod_remove_proc(void) {
 	/* no problem if it was not registered */
-	remove_proc_entry("scullmem", NULL /* parent dir */);
-	remove_proc_entry("scullseq", NULL);
+	remove_proc_entry("kv_modmem", NULL /* parent dir */);
+	remove_proc_entry("kv_modseq", NULL);
 }
 
 #endif /* SCULL_DEBUG */
@@ -237,19 +237,19 @@ static void scull_remove_proc(void) {
 /*
  * Open: to open the device is to initialize it for the remaining methods.
  */
-int scull_open(struct inode *inode, struct file *filp) {
+int kv_mod_open(struct inode *inode, struct file *filp) {
 
-   /* the device this function is handling (one of the scull_devices) */
-	struct scull_dev *dev;
+   /* the device this function is handling (one of the kv_mod_devices) */
+	struct kv_mod_dev *dev;
 
-	/* we need the scull_dev object (dev), but the required prototpye
+	/* we need the kv_mod_dev object (dev), but the required prototpye
       for the open method is that it receives a pointer to an inode.
       now an inode contains a struct cdev (the field is called
       i_cdev) and we can use this field with the container_of macro
-      to obtain the scull_dev object (since scull_dev also contains
+      to obtain the kv_mod_dev object (since kv_mod_dev also contains
       a cdev object.
     */
-	dev = container_of(inode->i_cdev, struct scull_dev, cdev);
+	dev = container_of(inode->i_cdev, struct kv_mod_dev, cdev);
 
 	/* so that we don't need to use the container_of() macro repeatedly,
 		we save the handle to dev in the file's private_data for other methods.
@@ -262,7 +262,7 @@ int scull_open(struct inode *inode, struct file *filp) {
 		/* grab the semaphore, so the call to trim() is atomic */
 		if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 
-		scull_trim(dev);
+		kv_mod_trim(dev);
 
 		/* release the semaphore */
 		up(&dev->sem);
@@ -273,38 +273,38 @@ int scull_open(struct inode *inode, struct file *filp) {
 
 /*
  * Release: release is the opposite of open, so it deallocates any
- *          memory allocated by scull_open and shuts down the device.
+ *          memory allocated by kv_mod_open and shuts down the device.
  *          since open didn't allocate anything and our device exists
  *          only in memory, there are no actions to take here.
  */
-int scull_release(struct inode *inode, struct file *filp) {
+int kv_mod_release(struct inode *inode, struct file *filp) {
 	return 0;
 }
 
 /*
- * Follow the list--used by scull_read() and scull_write() to find the
+ * Follow the list--used by kv_mod_read() and kv_mod_write() to find the
  *                  item in the list that corresponds to the file's
  *                  "file position" pointer.  If the file position is
  *                  beyond the end of the file, then items are added
  *                  to extend the file, this is typical file-oriented
  *                  behavior.
  */
-struct scull_qset *scull_follow(struct scull_dev *dev, int n) {
+struct kv_mod_qset *kv_mod_follow(struct kv_mod_dev *dev, int n) {
 
 	/* get the first item in the list */
-	struct scull_qset *qs = dev->data;
+	struct kv_mod_qset *qs = dev->data;
 
    /* allocate first qset explicitly if need be */
 	if (qs == NULL) {
 
 		/* allocate and also set the data field to rference this item */
-		qs = dev->data = kmalloc(sizeof(struct scull_qset), GFP_KERNEL);
+		qs = dev->data = kmalloc(sizeof(struct kv_mod_qset), GFP_KERNEL);
 
 		/* if the allocation fails, return NULL */
 		if (qs == NULL) return NULL;
 
 		/* initialize the qset to all zeros */
-		memset(qs, 0, sizeof(struct scull_qset));
+		memset(qs, 0, sizeof(struct kv_mod_qset));
 	}
 
 	/* follow the list to item n */
@@ -314,11 +314,11 @@ struct scull_qset *scull_follow(struct scull_dev *dev, int n) {
 		if (qs->next == NULL) {
 
 			/* allocate and return NULL on failure as before */
-			qs->next = kmalloc(sizeof(struct scull_qset), GFP_KERNEL);
+			qs->next = kmalloc(sizeof(struct kv_mod_qset), GFP_KERNEL);
 			if (qs->next == NULL) return NULL;
 
 			/* or zero the memory */
-			memset(qs->next, 0, sizeof(struct scull_qset));
+			memset(qs->next, 0, sizeof(struct kv_mod_qset));
 		}
 
 		/* advance to next item */
@@ -338,11 +338,11 @@ struct scull_qset *scull_follow(struct scull_dev *dev, int n) {
  *       that indicates that buf originates from user space memory and
  *       should therefore not be trusted.
  */
-ssize_t scull_read(struct file *filp, char __user *buf, size_t count,
+ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
                     loff_t *f_pos) {
 
-	struct scull_dev  *dev  = filp->private_data; 
-	struct scull_qset *dptr;
+	struct kv_mod_dev  *dev  = filp->private_data; 
+	struct kv_mod_qset *dptr;
 
 	int     quantum  = dev->quantum;
 	int     qset     = dev->qset;
@@ -370,7 +370,7 @@ ssize_t scull_read(struct file *filp, char __user *buf, size_t count,
 	s_pos = rest / quantum; q_pos = rest % quantum;
 
 	/* follow the list up to the right position (defined elsewhere) */
-	dptr = scull_follow(dev, item);
+	dptr = kv_mod_follow(dev, item);
 
 	if (dptr == NULL || !dptr->data || ! dptr->data[s_pos])
 		goto out; /* don't fill holes */
@@ -403,11 +403,11 @@ ssize_t scull_read(struct file *filp, char __user *buf, size_t count,
 	return retval;
 }
 
-ssize_t scull_write(struct file *filp, const char __user *buf, size_t count,
+ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
                      loff_t *f_pos) {
 
-	struct scull_dev  *dev  = filp->private_data;
-	struct scull_qset *dptr;
+	struct kv_mod_dev  *dev  = filp->private_data;
+	struct kv_mod_qset *dptr;
 
 	int     quantum  = dev->quantum;
 	int     qset     = dev->qset;
@@ -424,7 +424,7 @@ ssize_t scull_write(struct file *filp, const char __user *buf, size_t count,
 	s_pos = rest / quantum; q_pos = rest % quantum;
 
 	/* follow the list up to the right position */
-	dptr = scull_follow(dev, item);
+	dptr = kv_mod_follow(dev, item);
 
 	/* if there is no item at this file position, then exit */
 	if (dptr == NULL) goto out;
@@ -487,7 +487,7 @@ ssize_t scull_write(struct file *filp, const char __user *buf, size_t count,
  *         call.  It accomplishes this via a command value and an arg
  *         parameter which indicates which action to take.
  */
-long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
 
 	int err    = 0, tmp;
 	int retval = 0;
@@ -519,39 +519,39 @@ long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
 
  	  /* Reset: values are compile-time defines */
 	  case SCULL_IOCRESET:
-		scull_quantum = SCULL_QUANTUM;
-		scull_qset    = SCULL_QSET;
+		kv_mod_quantum = SCULL_QUANTUM;
+		kv_mod_qset    = SCULL_QSET;
 		break;
         
  	  /* Set: arg points to the value */
 	  case SCULL_IOCSQUANTUM:
 		  if (! capable (CAP_SYS_ADMIN))
 			  return -EPERM;
-		  retval = __get_user(scull_quantum, (int __user *)arg);
+		  retval = __get_user(kv_mod_quantum, (int __user *)arg);
 		  break;
 
  	  /* Tell: arg is the value */
 	  case SCULL_IOCTQUANTUM:
 		  if (! capable (CAP_SYS_ADMIN))
 			  return -EPERM;
-		  scull_quantum = arg;
+		  kv_mod_quantum = arg;
 		  break;
 
  	  /* Get: arg is pointer to result */
 	  case SCULL_IOCGQUANTUM:
-		  retval = __put_user(scull_quantum, (int __user *)arg);
+		  retval = __put_user(kv_mod_quantum, (int __user *)arg);
 		  break;
 
      /* Query: return it (it's positive) */
 	  case SCULL_IOCQQUANTUM:
-		  return scull_quantum;
+		  return kv_mod_quantum;
 
      /* eXchange: use arg as pointer; requires user to have root privilege */
 	  case SCULL_IOCXQUANTUM:
 		  if (! capable (CAP_SYS_ADMIN))
 			  return -EPERM;
-		  tmp = scull_quantum;
-		  retval = __get_user(scull_quantum, (int __user *)arg);
+		  tmp = kv_mod_quantum;
+		  retval = __get_user(kv_mod_quantum, (int __user *)arg);
 		  if (retval == 0)
 			  retval = __put_user(tmp, (int __user *)arg);
 		  break;
@@ -560,34 +560,34 @@ long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
 	  case SCULL_IOCHQUANTUM:
 		  if (! capable (CAP_SYS_ADMIN))
 			  return -EPERM;
-		  tmp = scull_quantum;
-		  scull_quantum = arg;
+		  tmp = kv_mod_quantum;
+		  kv_mod_quantum = arg;
 		  return tmp;
         
 	  case SCULL_IOCSQSET:
 		  if (! capable (CAP_SYS_ADMIN))
 			  return -EPERM;
-		  retval = __get_user(scull_qset, (int __user *)arg);
+		  retval = __get_user(kv_mod_qset, (int __user *)arg);
 		  break;
 
 	  case SCULL_IOCTQSET:
 		  if (! capable (CAP_SYS_ADMIN))
 			  return -EPERM;
-		  scull_qset = arg;
+		  kv_mod_qset = arg;
 		  break;
 
 	  case SCULL_IOCGQSET:
-		  retval = __put_user(scull_qset, (int __user *)arg);
+		  retval = __put_user(kv_mod_qset, (int __user *)arg);
 		  break;
 
 	  case SCULL_IOCQQSET:
-		  return scull_qset;
+		  return kv_mod_qset;
 
 	  case SCULL_IOCXQSET:
 		  if (! capable (CAP_SYS_ADMIN))
 			  return -EPERM;
-		  tmp = scull_qset;
-		  retval = __get_user(scull_qset, (int __user *)arg);
+		  tmp = kv_mod_qset;
+		  retval = __get_user(kv_mod_qset, (int __user *)arg);
 		  if (retval == 0)
 			  retval = put_user(tmp, (int __user *)arg);
 		  break;
@@ -595,8 +595,8 @@ long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
 	  case SCULL_IOCHQSET:
 		  if (! capable (CAP_SYS_ADMIN))
 			  return -EPERM;
-		  tmp = scull_qset;
-		  scull_qset = arg;
+		  tmp = kv_mod_qset;
+		  kv_mod_qset = arg;
 		  return tmp;
 
      /* redundant, as cmd was checked against MAXNR */
@@ -610,11 +610,11 @@ long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
 
 
 /*
- * Seek:  the only one of the "extended" operations which scull implements.
+ * Seek:  the only one of the "extended" operations which kv_mod implements.
  */
-loff_t scull_llseek(struct file *filp, loff_t off, int whence) {
+loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
 
-	struct scull_dev *dev    = filp->private_data;
+	struct kv_mod_dev *dev    = filp->private_data;
 	loff_t            newpos;
 
 	/* reset the file position as is standard */
@@ -646,14 +646,14 @@ loff_t scull_llseek(struct file *filp, loff_t off, int whence) {
 /* this assignment is what "binds" the template file operations with those that
  * are implemented herein.
  */
-struct file_operations scull_fops = {
+struct file_operations kv_mod_fops = {
 	.owner =    THIS_MODULE,
-	.llseek =   scull_llseek,
-	.read =     scull_read,
-	.write =    scull_write,
-	.unlocked_ioctl = scull_ioctl,
-	.open =     scull_open,
-	.release =  scull_release,
+	.llseek =   kv_mod_llseek,
+	.read =     kv_mod_read,
+	.write =    kv_mod_write,
+	.unlocked_ioctl = kv_mod_ioctl,
+	.open =     kv_mod_open,
+	.release =  kv_mod_release,
 };
 
 /*
@@ -665,54 +665,54 @@ struct file_operations scull_fops = {
  * Thefore, it must be careful to work correctly even if some of the items
  * have not been initialized
  */
-void scull_cleanup_module(void) {
+void kv_mod_cleanup_module(void) {
 
-	dev_t devno = MKDEV(scull_major, scull_minor);
+	dev_t devno = MKDEV(kv_mod_major, kv_mod_minor);
 
 	/* if the devices were succesfully allocated, then the referencing pointer
     * will be non-NULL.
     */
-	if (scull_devices != NULL) {
+	if (kv_mod_devices != NULL) {
 
 	   /* Get rid of our char dev entries by first deallocating memory and then
        * deleting them from the kernel */
 	   int i;
-		for (i = 0; i < scull_nr_devs; i++) {
-			scull_trim(scull_devices + i);
-			cdev_del(&scull_devices[i].cdev);
+		for (i = 0; i < kv_mod_nr_devs; i++) {
+			kv_mod_trim(kv_mod_devices + i);
+			cdev_del(&kv_mod_devices[i].cdev);
 		}
 
 		/* free the referencing structures */
-		kfree(scull_devices);
+		kfree(kv_mod_devices);
 	}
 
 #ifdef SCULL_DEBUG /* use proc only if debugging */
-	scull_remove_proc();
+	kv_mod_remove_proc();
 #endif
 
 	/* cleanup_module is never called if registering failed */
-	unregister_chrdev_region(devno, scull_nr_devs);
+	unregister_chrdev_region(devno, kv_mod_nr_devs);
 }
 
 
 /*
  * Set up the char_dev structure for this device.
  */
-static void scull_setup_cdev(struct scull_dev *dev, int index) {
-	int err, devno = MKDEV(scull_major, scull_minor + index);
+static void kv_mod_setup_cdev(struct kv_mod_dev *dev, int index) {
+	int err, devno = MKDEV(kv_mod_major, kv_mod_minor + index);
     
 	/* cdev_init() and cdev_add() are kernel-required initialization */
-	cdev_init(&dev->cdev, &scull_fops);
+	cdev_init(&dev->cdev, &kv_mod_fops);
 	dev->cdev.owner = THIS_MODULE;
-	dev->cdev.ops   = &scull_fops;
+	dev->cdev.ops   = &kv_mod_fops;
 	err             = cdev_add (&dev->cdev, devno, 1);
 
 	/* Fail gracefully if need be */
-	if (err) printk(KERN_NOTICE "Error %d adding scull%d", err, index);
+	if (err) printk(KERN_NOTICE "Error %d adding kv_mod%d", err, index);
 }
 
 
-int scull_init_module(void) {
+int kv_mod_init_module(void) {
 	int result, i;
 	dev_t dev = 0;
 
@@ -720,17 +720,17 @@ int scull_init_module(void) {
     * Compile-time default for major is zero (dynamically assigned) unless 
     * directed otherwise at load time.  Also get range of minors to work with.
     */
-	if (scull_major == 0) {
-		result      = alloc_chrdev_region(&dev,scull_minor,scull_nr_devs,"scull");
-		scull_major = MAJOR(dev);
+	if (kv_mod_major == 0) {
+		result      = alloc_chrdev_region(&dev,kv_mod_minor,kv_mod_nr_devs,"kv_mod");
+		kv_mod_major = MAJOR(dev);
 	} else {
-		dev    = MKDEV(scull_major, scull_minor);
-		result = register_chrdev_region(dev, scull_nr_devs, "scull");
+		dev    = MKDEV(kv_mod_major, kv_mod_minor);
+		result = register_chrdev_region(dev, kv_mod_nr_devs, "kv_mod");
 	}
 
 	/* report failue to aquire major number */
 	if (result < 0) {
-		printk(KERN_WARNING "scull: can't get major %d\n", scull_major);
+		printk(KERN_WARNING "kv_mod: can't get major %d\n", kv_mod_major);
 		return result;
 	}
 
@@ -738,28 +738,28 @@ int scull_init_module(void) {
 	 * allocate the devices -- we can't have them static, as the number
 	 * can be specified at load time
 	 */
-	scull_devices = kmalloc(scull_nr_devs*sizeof(struct scull_dev), GFP_KERNEL);
+	kv_mod_devices = kmalloc(kv_mod_nr_devs*sizeof(struct kv_mod_dev), GFP_KERNEL);
 
 	/* exit if memory allocation fails */
-	if (!scull_devices) {
+	if (!kv_mod_devices) {
 		result = -ENOMEM;
 		goto fail;
 	}
 
 	/* otherwise, zero the memory */
-	memset(scull_devices, 0, scull_nr_devs * sizeof(struct scull_dev));
+	memset(kv_mod_devices, 0, kv_mod_nr_devs * sizeof(struct kv_mod_dev));
 
    /* Initialize each device. */
-	for (i = 0; i < scull_nr_devs; i++) {
-		scull_devices[i].quantum = scull_quantum;
-		scull_devices[i].qset    = scull_qset;
-		sema_init(&scull_devices[i].sem, 1);
-		scull_setup_cdev(&scull_devices[i], i);
+	for (i = 0; i < kv_mod_nr_devs; i++) {
+		kv_mod_devices[i].quantum = kv_mod_quantum;
+		kv_mod_devices[i].qset    = kv_mod_qset;
+		sema_init(&kv_mod_devices[i].sem, 1);
+		kv_mod_setup_cdev(&kv_mod_devices[i], i);
 	}
 
    /* only when debugging */
 #ifdef SCULL_DEBUG
-	scull_create_proc();
+	kv_mod_create_proc();
 #endif
 
    /* succeed */
@@ -767,12 +767,12 @@ int scull_init_module(void) {
 
 	/* failure, so cleanup is necessary */
   fail:
-	scull_cleanup_module();
+	kv_mod_cleanup_module();
 	return result;
 }
 
 /* identify to the kernel the entry points for initialization and release, these
  * functions are called on insmod and rmmod, respectively
  */
-module_init(scull_init_module);
-module_exit(scull_cleanup_module);
+module_init(kv_mod_init_module);
+module_exit(kv_mod_cleanup_module);
