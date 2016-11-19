@@ -30,7 +30,7 @@
 
 #include <asm/uaccess.h>	/* copy_*_user */
 
-#include "scull.h"		   /* local definitions */
+#include "kv_mod.h"		   /* local definitions */
 
 /*
  * Our parameters which can be set at load time.

@@ -1,9 +1,9 @@
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
-scull-objs := scull_main.o
+kv_mod-objs := kv_kernel_mod.o
 
-obj-m	:= scull.o
+obj-m	:= kv_mod.o
 
 else
 
