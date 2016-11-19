@@ -3,7 +3,7 @@ ifneq ($(KERNELRELEASE),)
 
 kv_mod-objs := kv_kernel_mod.o
 
-obj-m	:= kv_mod.o
+obj-m	:= kv_kernel_mod.o
 
 else
 
