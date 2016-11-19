@@ -61,34 +61,34 @@ int kv_mod_trim(struct kv_mod_dev *dev) {
 	struct kv_mod_qset *next, *dptr;
 	int qset = dev->qset;
 	int i;
-
-   /* release all the list items */
-	for (dptr = dev->data; dptr; dptr = next) {
-
-		/* if list item has associated quantums, release memory for those also */
-		if (dptr->data) {
-
-			/* walk qset, releasing each */
-			for (i = 0; i < qset; i++) {
-				kfree(dptr->data[i]);
-			}
-
-			/* then release array of pointers to the quantums and NULL terminate */
-			kfree(dptr->data);
-			dptr->data = NULL;
-		}
-
-		/* advance to next item in list */
-		next = dptr->next;
-		kfree(dptr);
-	}
-
-	/* set the dev fields to initial values */
-	dev->size    = 0;
-	dev->quantum = kv_mod_quantum;
-	dev->qset    = kv_mod_qset;
-	dev->data    = NULL;
-
+//
+//   /* release all the list items */
+//	for (dptr = dev->data; dptr; dptr = next) {
+//
+//		/* if list item has associated quantums, release memory for those also */
+//		if (dptr->data) {
+//
+//			/* walk qset, releasing each */
+//			for (i = 0; i < qset; i++) {
+//				kfree(dptr->data[i]);
+//			}
+//
+//			/* then release array of pointers to the quantums and NULL terminate */
+//			kfree(dptr->data);
+//			dptr->data = NULL;
+//		}
+//
+//		/* advance to next item in list */
+//		next = dptr->next;
+//		kfree(dptr);
+//	}
+//
+//	/* set the dev fields to initial values */
+//	dev->size    = 0;
+//	dev->quantum = kv_mod_quantum;
+//	dev->qset    = kv_mod_qset;
+//	dev->data    = NULL;
+//
 	return 0;
 }
 
@@ -289,48 +289,48 @@ int kv_mod_release(struct inode *inode, struct file *filp) {
  *                  to extend the file, this is typical file-oriented
  *                  behavior.
  */
-struct kv_mod_qset *kv_mod_follow(struct kv_mod_dev *dev, int n) {
-
-	/* get the first item in the list */
-	struct kv_mod_qset *qs = dev->data;
-
-   /* allocate first qset explicitly if need be */
-	if (qs == NULL) {
-
-		/* allocate and also set the data field to rference this item */
-		qs = dev->data = kmalloc(sizeof(struct kv_mod_qset), GFP_KERNEL);
-
-		/* if the allocation fails, return NULL */
-		if (qs == NULL) return NULL;
-
-		/* initialize the qset to all zeros */
-		memset(qs, 0, sizeof(struct kv_mod_qset));
-	}
-
-	/* follow the list to item n */
-	while (n--) {
-
-		/* if there is no next item in the list, allocate one */
-		if (qs->next == NULL) {
-
-			/* allocate and return NULL on failure as before */
-			qs->next = kmalloc(sizeof(struct kv_mod_qset), GFP_KERNEL);
-			if (qs->next == NULL) return NULL;
-
-			/* or zero the memory */
-			memset(qs->next, 0, sizeof(struct kv_mod_qset));
-		}
-
-		/* advance to next item */
-		qs = qs->next;
-
-		/* curious -- continue; */
-	}
-
-	/* return the qset associated with the n-th item */
-	return qs;
-}
-
+//struct kv_mod_qset *kv_mod_follow(struct kv_mod_dev *dev, int n) {
+//
+//	/* get the first item in the list */
+//	struct kv_mod_qset *qs = dev->data;
+//
+//   /* allocate first qset explicitly if need be */
+//	if (qs == NULL) {
+//
+//		/* allocate and also set the data field to rference this item */
+//		qs = dev->data = kmalloc(sizeof(struct kv_mod_qset), GFP_KERNEL);
+//
+//		/* if the allocation fails, return NULL */
+//		if (qs == NULL) return NULL;
+//
+//		/* initialize the qset to all zeros */
+//		memset(qs, 0, sizeof(struct kv_mod_qset));
+//	}
+//
+//	/* follow the list to item n */
+//	while (n--) {
+//
+//		/* if there is no next item in the list, allocate one */
+//		if (qs->next == NULL) {
+//
+//			/* allocate and return NULL on failure as before */
+//			qs->next = kmalloc(sizeof(struct kv_mod_qset), GFP_KERNEL);
+//			if (qs->next == NULL) return NULL;
+//
+//			/* or zero the memory */
+//			memset(qs->next, 0, sizeof(struct kv_mod_qset));
+//		}
+//
+//		/* advance to next item */
+//		qs = qs->next;
+//
+//		/* curious -- continue; */
+//	}
+//
+//	/* return the qset associated with the n-th item */
+//	return qs;
+//}
+//
 /*
  * Read: implements the read action on the device by reading count
  *       bytes into buf beginning at file position f_pos from the file 
@@ -340,145 +340,75 @@ struct kv_mod_qset *kv_mod_follow(struct kv_mod_dev *dev, int n) {
  */
 ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
                     loff_t *f_pos) {
-
-	struct kv_mod_dev  *dev  = filp->private_data; 
-	struct kv_mod_qset *dptr;
-
-	int     quantum  = dev->quantum;
-	int     qset     = dev->qset;
-	int     itemsize = quantum * qset; /* number of bytes in the list item    */
-	int     item, s_pos, q_pos, rest;  /* other variables for calculating pos */
-	ssize_t retval   = 0;
-
-	/* acquire the semaphore */
-	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
-
-	/* if the read position is beyond the end of the file, then goto exit
-    * note that we can't simply return, because we are holding the
-    * semaphore, "goto out" provides a single exit point that allows for
-    * releasing the semaphore.
-    */
-	if (*f_pos >= dev->size) goto out;
-
-	if (*f_pos + count > dev->size) {
-		count = dev->size - *f_pos;
-	}
-
-	/* find listitem, qset index, and offset in the quantum */
-	item = (long)*f_pos / itemsize;
-	rest = (long)*f_pos % itemsize;
-	s_pos = rest / quantum; q_pos = rest % quantum;
-
-	/* follow the list up to the right position (defined elsewhere) */
-	dptr = kv_mod_follow(dev, item);
-
-	if (dptr == NULL || !dptr->data || ! dptr->data[s_pos])
-		goto out; /* don't fill holes */
-
-	/* read only up to the end of this quantum */
-	if (count > quantum - q_pos) {
-		count = quantum - q_pos;
-	}
-
-	/* this is where the actual "read" occurs, when we copy from the
-    * in-memory data into the user-supplied buffer.  This copy is
-    * handled by the copy_to_user() function, which handles the
-    * transfer of data from kernel space data structures to user space
-    * data structures.
-    */
-	if (copy_to_user(buf, dptr->data[s_pos] + q_pos, count)) {
-		retval = -EFAULT;
-		goto out;
-	}
-
-	/* on successful copy, update the file position and return the number
-    * of bytes read.
-    */
-	*f_pos += count;
-	retval = count;
-
-	/* release the semaphore and return */
-  out:
-	up(&dev->sem);
-	return retval;
+//
+//	struct kv_mod_dev  *dev  = filp->private_data; 
+//	struct kv_mod_qset *dptr;
+//
+//	int     quantum  = dev->quantum;
+//	int     qset     = dev->qset;
+//	int     itemsize = quantum * qset; /* number of bytes in the list item    */
+//	int     item, s_pos, q_pos, rest;  /* other variables for calculating pos */
+//	ssize_t retval   = 0;
+//
+//	/* acquire the semaphore */
+//	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
+//
+//	/* if the read position is beyond the end of the file, then goto exit
+//    * note that we can't simply return, because we are holding the
+//    * semaphore, "goto out" provides a single exit point that allows for
+//    * releasing the semaphore.
+//    */
+//	if (*f_pos >= dev->size) goto out;
+//
+//	if (*f_pos + count > dev->size) {
+//		count = dev->size - *f_pos;
+//	}
+//
+//	/* find listitem, qset index, and offset in the quantum */
+//	item = (long)*f_pos / itemsize;
+//	rest = (long)*f_pos % itemsize;
+//	s_pos = rest / quantum; q_pos = rest % quantum;
+//
+//	/* follow the list up to the right position (defined elsewhere) */
+//	dptr = kv_mod_follow(dev, item);
+//
+//	if (dptr == NULL || !dptr->data || ! dptr->data[s_pos])
+//		goto out; /* don't fill holes */
+//
+//	/* read only up to the end of this quantum */
+//	if (count > quantum - q_pos) {
+//		count = quantum - q_pos;
+//	}
+//
+//	/* this is where the actual "read" occurs, when we copy from the
+//    * in-memory data into the user-supplied buffer.  This copy is
+//    * handled by the copy_to_user() function, which handles the
+//    * transfer of data from kernel space data structures to user space
+//    * data structures.
+//    */
+//	if (copy_to_user(buf, dptr->data[s_pos] + q_pos, count)) {
+//		retval = -EFAULT;
+//		goto out;
+//	}
+//
+//	/* on successful copy, update the file position and return the number
+//    * of bytes read.
+//    */
+//	*f_pos += count;
+//	retval = count;
+//
+//	/* release the semaphore and return */
+//  out:
+//	up(&dev->sem);
+//	return retval;
+//    
+    return 1;
 }
 
 ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
                      loff_t *f_pos) {
 
-	struct kv_mod_dev  *dev  = filp->private_data;
-	struct kv_mod_qset *dptr;
-
-	int     quantum  = dev->quantum;
-	int     qset     = dev->qset;
-	int     itemsize = quantum * qset;
-	int     item, s_pos, q_pos, rest;
-	ssize_t retval   = -ENOMEM;         /* value used in "goto out" statements */
-
-	/* acquire the semaphore */
-	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
-
-	/* find list item, qset index and offset in the quantum */
-	item = (long)*f_pos / itemsize;
-	rest = (long)*f_pos % itemsize;
-	s_pos = rest / quantum; q_pos = rest % quantum;
-
-	/* follow the list up to the right position */
-	dptr = kv_mod_follow(dev, item);
-
-	/* if there is no item at this file position, then exit */
-	if (dptr == NULL) goto out;
-
-	/* if there is memory for writing data in this item, allocate some */
-	if (!dptr->data) {
-
-		/* exit if the allocation fails */
-		dptr->data = kmalloc(qset * sizeof(char *), GFP_KERNEL);
-		if (!dptr->data) goto out;
-
-		/* otherwise zero the memory */
-		memset(dptr->data, 0, qset * sizeof(char *));
-	}
-
-	/* if there is no memory for writing data in this quantum, allocate some */
-	if (!dptr->data[s_pos]) {
-
-		/* exit if the allocation fails */
-		dptr->data[s_pos] = kmalloc(quantum, GFP_KERNEL);
-		if (!dptr->data[s_pos]) goto out;
-	}
-
-	/* adjust count to write only up to the end of this quantum */
-	if (count > quantum - q_pos) {
-		count = quantum - q_pos;
-	}
-
-	/* this is where the actual "write" occurs, when we copy from the
-    * the user-supplied buffer into the in-memory data area.  This copy is
-    * handled by the copy_from_user() function, which handles the
-    * transfer of data from user space data structures to kernel space
-    * data structures.
-    */
-	if (copy_from_user(dptr->data[s_pos]+q_pos, buf, count)) {
-		retval = -EFAULT;
-		goto out;
-	}
-
-	/* on successful transfer, update the file position and record the
-    * number of bytes written.
-	 */
-	*f_pos += count;
-	retval = count;
-
-   /* update the size of the file */
-	if (dev->size < *f_pos) {
-		dev->size = *f_pos;
-	}
-
-	/* release the semaphore and return */
-  out:
-	up(&dev->sem);
-	return retval;
+	return 1;
 }
 
 /*
@@ -488,123 +418,123 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
  *         parameter which indicates which action to take.
  */
 long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
-
-	int err    = 0, tmp;
-	int retval = 0;
-    
-	/*
-	 * extract the type and number bitfields, and don't decode
-	 * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
-	 */
-	if (_IOC_TYPE(cmd) != SCULL_IOC_MAGIC) return -ENOTTY;
-	if (_IOC_NR(cmd)   >  SCULL_IOC_MAXNR) return -ENOTTY;
-
-	/*
-	 * the direction is a bitmask, and VERIFY_WRITE catches R/W
-	 * transfers. `Type' is user-oriented, while
-	 * access_ok is kernel-oriented, so the concept of "read" and
-	 * "write" is reversed
-	 */
-	if (_IOC_DIR(cmd) & _IOC_READ) {
-		err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
-	} else if (_IOC_DIR(cmd) & _IOC_WRITE) {
-		err = !access_ok(VERIFY_READ,  (void __user *)arg, _IOC_SIZE(cmd));
-	}
-
-	/* exit on error */
-	if (err) return -EFAULT;
-
-	/* parse the incoming command */
-	switch(cmd) {
-
- 	  /* Reset: values are compile-time defines */
-	  case SCULL_IOCRESET:
-		kv_mod_quantum = SCULL_QUANTUM;
-		kv_mod_qset    = SCULL_QSET;
-		break;
-        
- 	  /* Set: arg points to the value */
-	  case SCULL_IOCSQUANTUM:
-		  if (! capable (CAP_SYS_ADMIN))
-			  return -EPERM;
-		  retval = __get_user(kv_mod_quantum, (int __user *)arg);
-		  break;
-
- 	  /* Tell: arg is the value */
-	  case SCULL_IOCTQUANTUM:
-		  if (! capable (CAP_SYS_ADMIN))
-			  return -EPERM;
-		  kv_mod_quantum = arg;
-		  break;
-
- 	  /* Get: arg is pointer to result */
-	  case SCULL_IOCGQUANTUM:
-		  retval = __put_user(kv_mod_quantum, (int __user *)arg);
-		  break;
-
-     /* Query: return it (it's positive) */
-	  case SCULL_IOCQQUANTUM:
-		  return kv_mod_quantum;
-
-     /* eXchange: use arg as pointer; requires user to have root privilege */
-	  case SCULL_IOCXQUANTUM:
-		  if (! capable (CAP_SYS_ADMIN))
-			  return -EPERM;
-		  tmp = kv_mod_quantum;
-		  retval = __get_user(kv_mod_quantum, (int __user *)arg);
-		  if (retval == 0)
-			  retval = __put_user(tmp, (int __user *)arg);
-		  break;
-
-     /* sHift: like Tell + Query; also requires root access */
-	  case SCULL_IOCHQUANTUM:
-		  if (! capable (CAP_SYS_ADMIN))
-			  return -EPERM;
-		  tmp = kv_mod_quantum;
-		  kv_mod_quantum = arg;
-		  return tmp;
-        
-	  case SCULL_IOCSQSET:
-		  if (! capable (CAP_SYS_ADMIN))
-			  return -EPERM;
-		  retval = __get_user(kv_mod_qset, (int __user *)arg);
-		  break;
-
-	  case SCULL_IOCTQSET:
-		  if (! capable (CAP_SYS_ADMIN))
-			  return -EPERM;
-		  kv_mod_qset = arg;
-		  break;
-
-	  case SCULL_IOCGQSET:
-		  retval = __put_user(kv_mod_qset, (int __user *)arg);
-		  break;
-
-	  case SCULL_IOCQQSET:
-		  return kv_mod_qset;
-
-	  case SCULL_IOCXQSET:
-		  if (! capable (CAP_SYS_ADMIN))
-			  return -EPERM;
-		  tmp = kv_mod_qset;
-		  retval = __get_user(kv_mod_qset, (int __user *)arg);
-		  if (retval == 0)
-			  retval = put_user(tmp, (int __user *)arg);
-		  break;
-
-	  case SCULL_IOCHQSET:
-		  if (! capable (CAP_SYS_ADMIN))
-			  return -EPERM;
-		  tmp = kv_mod_qset;
-		  kv_mod_qset = arg;
-		  return tmp;
-
-     /* redundant, as cmd was checked against MAXNR */
-	  default:
-		  return -ENOTTY;
-	}
-
-	return retval;
+//
+//	int err    = 0, tmp;
+//	int retval = 0;
+//    
+//	/*
+//	 * extract the type and number bitfields, and don't decode
+//	 * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
+//	 */
+//	if (_IOC_TYPE(cmd) != SCULL_IOC_MAGIC) return -ENOTTY;
+//	if (_IOC_NR(cmd)   >  SCULL_IOC_MAXNR) return -ENOTTY;
+//
+//	/*
+//	 * the direction is a bitmask, and VERIFY_WRITE catches R/W
+//	 * transfers. `Type' is user-oriented, while
+//	 * access_ok is kernel-oriented, so the concept of "read" and
+//	 * "write" is reversed
+//	 */
+//	if (_IOC_DIR(cmd) & _IOC_READ) {
+//		err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
+//	} else if (_IOC_DIR(cmd) & _IOC_WRITE) {
+//		err = !access_ok(VERIFY_READ,  (void __user *)arg, _IOC_SIZE(cmd));
+//	}
+//
+//	/* exit on error */
+//	if (err) return -EFAULT;
+//
+//	/* parse the incoming command */
+//	switch(cmd) {
+//
+// 	  /* Reset: values are compile-time defines */
+//	  case SCULL_IOCRESET:
+//		kv_mod_quantum = SCULL_QUANTUM;
+//		kv_mod_qset    = SCULL_QSET;
+//		break;
+//        
+// 	  /* Set: arg points to the value */
+//	  case SCULL_IOCSQUANTUM:
+//		  if (! capable (CAP_SYS_ADMIN))
+//			  return -EPERM;
+//		  retval = __get_user(kv_mod_quantum, (int __user *)arg);
+//		  break;
+//
+// 	  /* Tell: arg is the value */
+//	  case SCULL_IOCTQUANTUM:
+//		  if (! capable (CAP_SYS_ADMIN))
+//			  return -EPERM;
+//		  kv_mod_quantum = arg;
+//		  break;
+//
+// 	  /* Get: arg is pointer to result */
+//	  case SCULL_IOCGQUANTUM:
+//		  retval = __put_user(kv_mod_quantum, (int __user *)arg);
+//		  break;
+//
+//     /* Query: return it (it's positive) */
+//	  case SCULL_IOCQQUANTUM:
+//		  return kv_mod_quantum;
+//
+//     /* eXchange: use arg as pointer; requires user to have root privilege */
+//	  case SCULL_IOCXQUANTUM:
+//		  if (! capable (CAP_SYS_ADMIN))
+//			  return -EPERM;
+//		  tmp = kv_mod_quantum;
+//		  retval = __get_user(kv_mod_quantum, (int __user *)arg);
+//		  if (retval == 0)
+//			  retval = __put_user(tmp, (int __user *)arg);
+//		  break;
+//
+//     /* sHift: like Tell + Query; also requires root access */
+//	  case SCULL_IOCHQUANTUM:
+//		  if (! capable (CAP_SYS_ADMIN))
+//			  return -EPERM;
+//		  tmp = kv_mod_quantum;
+//		  kv_mod_quantum = arg;
+//		  return tmp;
+//        
+//	  case SCULL_IOCSQSET:
+//		  if (! capable (CAP_SYS_ADMIN))
+//			  return -EPERM;
+//		  retval = __get_user(kv_mod_qset, (int __user *)arg);
+//		  break;
+//
+//	  case SCULL_IOCTQSET:
+//		  if (! capable (CAP_SYS_ADMIN))
+//			  return -EPERM;
+//		  kv_mod_qset = arg;
+//		  break;
+//
+//	  case SCULL_IOCGQSET:
+//		  retval = __put_user(kv_mod_qset, (int __user *)arg);
+//		  break;
+//
+//	  case SCULL_IOCQQSET:
+//		  return kv_mod_qset;
+//
+//	  case SCULL_IOCXQSET:
+//		  if (! capable (CAP_SYS_ADMIN))
+//			  return -EPERM;
+//		  tmp = kv_mod_qset;
+//		  retval = __get_user(kv_mod_qset, (int __user *)arg);
+//		  if (retval == 0)
+//			  retval = put_user(tmp, (int __user *)arg);
+//		  break;
+//
+//	  case SCULL_IOCHQSET:
+//		  if (! capable (CAP_SYS_ADMIN))
+//			  return -EPERM;
+//		  tmp = kv_mod_qset;
+//		  kv_mod_qset = arg;
+//		  return tmp;
+//
+//     /* redundant, as cmd was checked against MAXNR */
+//	  default:
+//		  return -ENOTTY;
+//	}
+//
+	return 11;
 }
 
 
@@ -613,34 +543,35 @@ long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
  * Seek:  the only one of the "extended" operations which kv_mod implements.
  */
 loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
-
-	struct kv_mod_dev *dev    = filp->private_data;
-	loff_t            newpos;
-
-	/* reset the file position as is standard */
-	switch(whence) {
-	  case 0: /* SEEK_SET */
-		newpos = off;
-		break;
-
-	  case 1: /* SEEK_CUR */
-		newpos = filp->f_pos + off;
-		break;
-
-	  case 2: /* SEEK_END */
-		newpos = dev->size + off;
-		break;
-
-	  default: /* can't happen */
-		return -EINVAL;
-	}
-
-	/* file positions can't be negative */
-	if (newpos < 0) return -EINVAL;
-
+//
+//	struct kv_mod_dev *dev    = filp->private_data;
+//	loff_t            newpos;
+//
+//	/* reset the file position as is standard */
+//	switch(whence) {
+//	  case 0: /* SEEK_SET */
+//		newpos = off;
+//		break;
+//
+//	  case 1: /* SEEK_CUR */
+//		newpos = filp->f_pos + off;
+//		break;
+//
+//	  case 2: /* SEEK_END */
+//		newpos = dev->size + off;
+//		break;
+//
+//	  default: /* can't happen */
+//		return -EINVAL;
+//	}
+//
+//	/* file positions can't be negative */
+//	if (newpos < 0) return -EINVAL;
+//
 	/* set the postion and return */
-	filp->f_pos = newpos;
-	return newpos;
+//	filp->f_pos = newpos;
+//	return newpos;
+    return 1;
 }
 
 /* this assignment is what "binds" the template file operations with those that

@@ -19,6 +19,7 @@
 #define _SCULL_H_
 
 #include <linux/ioctl.h> /* needed for the _IOW etc stuff used later */
+#include "kv.h"
 
 /*
  * Macros to help debugging
@@ -69,11 +70,11 @@
  */
 struct kv_mod_qset {
 	void              **data;      /* an array or pointers to bytes    */
-	struct kv_mod_qset  *next;      /* the next qset in the linked-list */
+	//struct kv_mod_qset  *next;      /* the next qset in the linked-list */
 };
 
 struct kv_mod_dev {
-	struct kv_mod_qset  *data;      /* Pointer to first quantum set     */
+	//struct key_vault    data;      /* Pointer to first quantum set     */
 	int                 quantum;   /* the current quantum size         */
 	int                 qset;      /* the current array size           */
 	unsigned long       size;      /* amount of data stored here       */

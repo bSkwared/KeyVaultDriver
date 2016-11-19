@@ -671,6 +671,7 @@ deps_/home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv_kernel_mod.o := \
     $(wildcard include/config/x86/smap.h) \
   arch/x86/include/asm/uaccess_32.h \
   /home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv_kernel_mod.h \
+  /home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv.h \
 
 /home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv_kernel_mod.o: $(deps_/home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv_kernel_mod.o)
 
