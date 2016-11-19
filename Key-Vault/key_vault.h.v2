@@ -28,10 +28,9 @@ struct kv_list {
 
 /* hold information about a list, including a pointer to the head */
 struct kv_list_h {
-	int              total_key_val_pairs;
-	int              num_keys;
-	struct kv_list **data;
-	struct kv_list  *fp;
+	int            total_key_val_pairs;
+	int            num_keys;
+	struct kv_list *data;
 };
 
 /* the key_vault is essentially an array of kv_list head pointers */
@@ -80,24 +79,16 @@ int num_vpairs (struct key_vault *v);
 /* insert_pair: inserts key-value pair for given uid (one-indexed) into vault */
 int insert_pair (struct key_vault *v, int uid, char *key, char *val);
 
-/* delete_pair: deletes key-value pair for given uid (one-indexed) from vault */
-void delete_pair (struct key_vault *v, int uid, char *key, char *val);
-
 /* retrieve_val:  retrieves val(s) for key for uid (one-indexed) for debugging*/
 int retrieve_val (struct key_vault *v, int uid, char *key, 
 						char  val[MAX_KEY_USER][MAX_VAL_SIZE]);
 
 /* find_key:  finds the specified key in the vault and returns a pointer to
  *            it, or returns NULL if the key is not present; also sets
- *            key_num to the sequential location of the key in the vault 
- *            Note, uid is one-indexed.                                       */
+ *            is_last_key to TRUE if the returned key is the last one of the
+ *            user's set. uid is one-indexed.                                 */
 struct kv_list*  find_key  (struct key_vault *v, int uid, char *key, 
-									 int *key_num);
-
-/* find_key_val:  finds the specified key-value pair and returns a pointer to
- *                it, or returns NULL if the pair is not present.             */
-struct kv_list*  find_key_val (struct key_vault *v, int uid, char *key, 
-									    char  *val);
+									 int *is_last_key);
 
 /* next_key:  returns a pointer to the next key in the current user's set,
  *            or NULL if there is no next key.  uid is one-indexed.           */
@@ -114,8 +105,5 @@ struct kv_list*  get_last_in_list (struct kv_list *l);
 void free_list (struct kv_list *l);
 
 /* insert_in_list:  inserts the key-value pair into list l                    */
-int insert_in_list (struct kv_list **l, char *key, char *val);
-
-/* delete_from_list: deletes the referenced key-value pair from vault */
-void delete_from_list (struct kv_list **l);
+int insert_in_list (struct kv_list *l, char *key, char *val);
 

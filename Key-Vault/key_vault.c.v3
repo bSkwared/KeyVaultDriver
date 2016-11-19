@@ -137,17 +137,12 @@ int  insert_pair (struct key_vault *v, int uid, char *key, char *val) {
    struct kv_list_h *user = &v->ukey_data[uid-1];
 
    /* if first key for this user, then we need to allocate memory */
-	/* former test was "user->num_keys == 0"; however, in the context of
-      deletion, we could allocate for the first key, then delete it
-      dropping num_keys to zero, yet we do not need to re-allocate.
-    */
-   if (user->data == NULL) {
+   if (user->num_keys == 0) {
       user->data = kmalloc(MAX_KEY_USER*sizeof(struct kv_list*), GFP_KERNEL);
+		memset(user->data, 0, MAX_KEY_USER*sizeof(struct kv_list));
 
       /* if allocation fails, then return false */
       if (user->data == NULL) return FALSE;
-
-		memset(user->data, 0, MAX_KEY_USER*sizeof(struct kv_list*));
    }
    
    /* scan this user's keys for duplicates */
@@ -172,7 +167,7 @@ int  insert_pair (struct key_vault *v, int uid, char *key, char *val) {
 
    /* or not */
    } else {
-		;
+       // fprintf(stderr, "Error inserting key %s for user %d\n", key, uid);
    }
 
    return rc;
@@ -187,7 +182,7 @@ void delete_pair (struct key_vault *v, int uid, char *key, char *val) {
 	/* key-value pair is not present */
 	if (l == NULL) return;
 
-	/* determine if the key is at the head of a list */
+	/* determine of the key is at the head of a list */
 	int i;
 	int num_keys = v->ukey_data[uid-1].num_keys;
 	for (i = 0; i < num_keys; i++) {
@@ -202,7 +197,6 @@ void delete_pair (struct key_vault *v, int uid, char *key, char *val) {
 		only_element_in_list = (int) (l->next == NULL);
 	}
 
-
 	/* point the head pointer to the next element (could be NULL) */
 	if (head_of_list) {
 		v->ukey_data[uid-1].data[i] = l->next;
@@ -215,7 +209,7 @@ void delete_pair (struct key_vault *v, int uid, char *key, char *val) {
 		/* to avoid holes among list pointers, compact the list head pointers */
 		int j;
 		for (j = i; j < num_keys-1; j++) {
-			la[j] = la[j+1];
+			la[i] = la[i+1];
 		}
 		v->ukey_data[uid-1].num_keys--;
 
@@ -224,9 +218,6 @@ void delete_pair (struct key_vault *v, int uid, char *key, char *val) {
 	}
 
 	delete_from_list(&l);
-
-	/* reduce the total number for this uid */
-	v->ukey_data[uid-1].total_key_val_pairs--;
 }
 
 /* retrieve_val:  retrieves value(s) for key for given uid (one-indexed) */
@@ -314,9 +305,6 @@ struct kv_list*  find_key_val (struct key_vault *v, int uid, char *key,
  */
 struct kv_list* next_key (struct key_vault *v, int uid, struct kv_list *l) {
 
-	/* return NULL, if l is NULL*/
-	if (l == NULL) return NULL;
-
 	/* return the next key in the current list, if present */
 	if (l->next != NULL) return l->next;
 
@@ -390,7 +378,6 @@ int  insert_in_list (struct kv_list **lp, char *key, char *val) {
 
 		/* so allocate one */
       *lp = kmalloc(sizeof(struct kv_list), GFP_KERNEL);
-		memset(*lp, 0, sizeof(struct kv_list));
 
       /* if kmalloc failed, return FALSE */
       if (*lp == NULL) return FALSE;
