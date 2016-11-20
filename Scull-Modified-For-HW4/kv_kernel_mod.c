@@ -97,23 +97,25 @@ int kv_mod_trim(struct kv_mod_dev *dev) {
  * Open: to open the device is to initialize it for the remaining methods.
  */
 int kv_mod_open(struct inode *inode, struct file *filp) {
+//
+//   /* the device this function is handling (one of the kv_mod_devices) */
+//	struct kv_mod_dev *dev;
+//
+//	/* we need the kv_mod_dev object (dev), but the required prototpye
+//      for the open method is that it receives a pointer to an inode.
+//      now an inode contains a struct cdev (the field is called
+//      i_cdev) and we can use this field with the container_of macro
+//      to obtain the kv_mod_dev object (since kv_mod_dev also contains
+//      a cdev object.
+//    */
+//	dev = container_of(inode->i_cdev, struct kv_mod_dev, cdev);
+//
+//	/* so that we don't need to use the container_of() macro repeatedly,
+//		we save the handle to dev in the file's private_data for other methods.
+//	 */
+//	filp->private_data = dev;
 
-   /* the device this function is handling (one of the kv_mod_devices) */
-	struct kv_mod_dev *dev;
-
-	/* we need the kv_mod_dev object (dev), but the required prototpye
-      for the open method is that it receives a pointer to an inode.
-      now an inode contains a struct cdev (the field is called
-      i_cdev) and we can use this field with the container_of macro
-      to obtain the kv_mod_dev object (since kv_mod_dev also contains
-      a cdev object.
-    */
-	dev = container_of(inode->i_cdev, struct kv_mod_dev, cdev);
-
-	/* so that we don't need to use the container_of() macro repeatedly,
-		we save the handle to dev in the file's private_data for other methods.
-	 */
-	filp->private_data = dev;
+    filp->private_data = kv_mod_device;
     
     /***   I DONT THINK WE NEED THIS CAUSE DONT ERASE ON WRITE ****/
 //
@@ -541,7 +543,10 @@ int kv_mod_init_module(void) {
 	memset(kv_mod_device, 0, sizeof(struct kv_mod_dev));
 
     /* Initialize each device. */
-    init_vault(&(kv_mod_device->vault), kv_mod_quantum);
+    if (init_vault(&(kv_mod_device->vault), kv_mod_quantum)) {
+        goto fail;
+    }
+
     kv_mod_device->quantum = kv_mod_quantum;
     kv_mod_device->qset    = kv_mod_qset;
     sema_init(&(kv_mod_device->sem), 1);
