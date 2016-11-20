@@ -36,7 +36,7 @@
 /*
  * Our parameters which can be set at load time.
  */
-int kv_mod_major   = 353;
+int kv_mod_major   = 0;
 int kv_mod_minor   = 0;
 int kv_mod_nr_devs = SCULL_NR_DEVS;
 int kv_mod_quantum = SCULL_QUANTUM;
