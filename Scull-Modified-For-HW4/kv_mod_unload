@@ -1,6 +1,6 @@
 #!/bin/sh
 module="kv_mod"
-device="kv_kernel_mod"
+device="kv_mod"
 
 # invoke rmmod with all arguments we got
 /sbin/rmmod $module $* || exit 1
