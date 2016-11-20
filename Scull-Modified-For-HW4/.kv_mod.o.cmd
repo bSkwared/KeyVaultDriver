@@ -1,1 +1,0 @@
-cmd_/home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv_mod.o := ld -m elf_i386   -r -o /home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv_mod.o /home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv_kernel_mod.o /home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv.o 
