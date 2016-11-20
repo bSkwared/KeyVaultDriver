@@ -5,9 +5,9 @@ Completed:
 - Current implementation does not seem to work with append (non-issue in
   kv_mod device, which will not over-write data structure on write).
 - Modify the .h and .c files to replace references to "scull" with "kv_mod"
+- Strip out qset data structure
 
 TODO:
-- Strip out qset data structure
 - Install new key_vault structure
 - Modify key_vault by replacing C library functions w/kernel counterparts
 - Modify read, write(), etc. to work with new structures

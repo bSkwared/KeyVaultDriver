@@ -31,6 +31,7 @@
 #include <asm/uaccess.h>	/* copy_*_user */
 
 #include "kv_kernel_mod.h"		   /* local definitions */
+#include "kv.h"
 
 /*
  * Our parameters which can be set at load time.
@@ -51,16 +52,16 @@ MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet modified K. Shomper");
 MODULE_LICENSE("Dual BSD/GPL");
 
 /* the set of devices allocated in kv_mod_init_module */
-struct kv_mod_dev *kv_mod_devices = NULL;
+struct kv_mod_dev *kv_mod_device = NULL;
 
 /*
  * Release the memory held by the kv_mod device; must be called with the device
  * semaphore held.  Requires that dev not be NULL
  */
 int kv_mod_trim(struct kv_mod_dev *dev) {
-	struct kv_mod_qset *next, *dptr;
-	int qset = dev->qset;
-	int i;
+//	struct kv_mod_qset *next, *dptr;
+//	int qset = dev->qset;
+//	int i;
 //
 //   /* release all the list items */
 //	for (dptr = dev->data; dptr; dptr = next) {
@@ -91,148 +92,6 @@ int kv_mod_trim(struct kv_mod_dev *dev) {
 //
 	return 0;
 }
-
-/*
- * The proc filesystem: function to read an entry
- */
-#ifdef SCULL_DEBUG /* use proc only if debugging */
-
-int kv_mod_read_procmem(struct seq_file *s, void *v) {
-   int i, j;
-   int limit = s->size - 80; /* Don't print more than this */
-
-   for (i = 0; i < kv_mod_nr_devs && s->count <= limit; i++) {
-      struct kv_mod_dev   *d = &kv_mod_devices[i];
-      struct kv_mod_qset *qs = d->data;
-
-      if (down_interruptible(&d->sem)) return -ERESTARTSYS;
-
-      seq_printf(s,"\nDevice %i: qset %i, q %i, sz %li\n",
-                    i, d->qset, d->quantum, d->size);
-
-      for (; qs && s->count<=limit; qs=qs->next) { /* scan the list */
-         seq_printf(s, "  item at %p, qset at %p\n",
-                        qs, qs->data);
-         if (qs->data && !qs->next) { /* dump only the last item */
-            for (j = 0; j < d->qset; j++) {
-               if (qs->data[j]) {
-                  seq_printf(s, "    % 4i: %8p\n", j, qs->data[j]);
-					}
-            }
-			}
-      }
-
-      up(&kv_mod_devices[i].sem);
-   }
-
-   return 0;
-}
-
-/*
- * Here are our sequence iteration methods.  Our "position" is
- * simply the device number.
- */
-static void *kv_mod_seq_start(struct seq_file *s, loff_t *pos) {
-	if (*pos >= kv_mod_nr_devs) return NULL;   /* No more to read */
-
-	return kv_mod_devices + *pos;
-}
-
-static void *kv_mod_seq_next(struct seq_file *s, void *v, loff_t *pos) {
-	(*pos)++;
-	if (*pos >= kv_mod_nr_devs) return NULL;
-	return kv_mod_devices + *pos;
-}
-
-static void kv_mod_seq_stop(struct seq_file *s, void *v) {
-	/* Actually, there's nothing to do here */
-}
-
-static int kv_mod_seq_show(struct seq_file *s, void *v) {
-	struct kv_mod_dev *dev = (struct kv_mod_dev *) v;
-	struct kv_mod_qset *d;
-	int i;
-
-	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
-
-	seq_printf(s, "\nDevice %i: qset %i, q %i, sz %li\n",
-			         (int) (dev - kv_mod_devices), dev->qset,
-			         dev->quantum, dev->size);
-	for (d = dev->data; d; d = d->next) { /* scan the list */
-		seq_printf(s, "  item at %p, qset at %p\n", d, d->data);
-		if (d->data && !d->next) { /* dump only the last item */
-			for (i = 0; i < dev->qset; i++) {
-				if (d->data[i]) {
-					seq_printf(s, "    % 4i: %8p\n", i, d->data[i]);
-				}
-			}
-		}
-	}
-
-	up(&dev->sem);
-	return 0;
-}
-	
-/*
- * Tie the sequence operators up.
- */
-static struct seq_operations kv_mod_seq_ops = {
-	.start = kv_mod_seq_start,
-	.next  = kv_mod_seq_next,
-	.stop  = kv_mod_seq_stop,
-	.show  = kv_mod_seq_show
-};
-
-/*
- * Now to implement the /proc files we need only make an open
- * method which sets up the sequence operators.
- */
-static int kv_modmem_proc_open(struct inode *inode, struct file *file) {
-	return single_open(file, kv_mod_read_procmem, NULL);
-}
-
-static int kv_modseq_proc_open(struct inode *inode, struct file *file) {
-	return seq_open(file, &kv_mod_seq_ops);
-}
-
-/*
- * Create a set of file operations for our proc files.
- */
-static struct file_operations kv_modmem_proc_ops = {
-	.owner   = THIS_MODULE,
-	.open    = kv_modmem_proc_open,
-	.read    = seq_read,
-	.llseek  = seq_lseek,
-	.release = single_release
-};
-
-static struct file_operations kv_modseq_proc_ops = {
-	.owner   = THIS_MODULE,
-	.open    = kv_modseq_proc_open,
-	.read    = seq_read,
-	.llseek  = seq_lseek,
-	.release = seq_release
-};
-	
-
-/*
- * Actually create (and remove) the /proc file(s).
- */
-
-static void kv_mod_create_proc(void) {
-	proc_create_data("kv_modmem", 0 /* default mode */,
-			NULL /* parent dir */, &kv_modmem_proc_ops,
-			NULL /* client data */);
-	proc_create("kv_modseq", 0, NULL, &kv_modseq_proc_ops);
-}
-
-static void kv_mod_remove_proc(void) {
-	/* no problem if it was not registered */
-	remove_proc_entry("kv_modmem", NULL /* parent dir */);
-	remove_proc_entry("kv_modseq", NULL);
-}
-
-#endif /* SCULL_DEBUG */
 
 /*
  * Open: to open the device is to initialize it for the remaining methods.
@@ -603,18 +462,15 @@ void kv_mod_cleanup_module(void) {
 	/* if the devices were succesfully allocated, then the referencing pointer
     * will be non-NULL.
     */
-	if (kv_mod_devices != NULL) {
+	if (kv_mod_device != NULL) {
 
 	   /* Get rid of our char dev entries by first deallocating memory and then
        * deleting them from the kernel */
-	   int i;
-		for (i = 0; i < kv_mod_nr_devs; i++) {
-			kv_mod_trim(kv_mod_devices + i);
-			cdev_del(&kv_mod_devices[i].cdev);
-		}
+	    kv_mod_trim(kv_mod_device);
+	    cdev_del(&(kv_mod_device->cdev));
 
 		/* free the referencing structures */
-		kfree(kv_mod_devices);
+		kfree(kv_mod_device);
 	}
 
 #ifdef SCULL_DEBUG /* use proc only if debugging */
@@ -644,7 +500,7 @@ static void kv_mod_setup_cdev(struct kv_mod_dev *dev, int index) {
 
 
 int kv_mod_init_module(void) {
-	int result, i;
+	int result;
 	dev_t dev = 0;
 
    /*
@@ -669,24 +525,24 @@ int kv_mod_init_module(void) {
 	 * allocate the devices -- we can't have them static, as the number
 	 * can be specified at load time
 	 */
-	kv_mod_devices = kmalloc(kv_mod_nr_devs*sizeof(struct kv_mod_dev), GFP_KERNEL);
+	//kv_mod_devices = kmalloc(kv_mod_nr_devs*sizeof(struct kv_mod_dev), GFP_KERNEL);
+	kv_mod_device = kmalloc(sizeof(struct kv_mod_dev), GFP_KERNEL);
 
 	/* exit if memory allocation fails */
-	if (!kv_mod_devices) {
+	if (!kv_mod_device) {
 		result = -ENOMEM;
 		goto fail;
 	}
 
 	/* otherwise, zero the memory */
-	memset(kv_mod_devices, 0, kv_mod_nr_devs * sizeof(struct kv_mod_dev));
+	memset(kv_mod_device, 0, sizeof(struct kv_mod_dev));
 
-   /* Initialize each device. */
-	for (i = 0; i < kv_mod_nr_devs; i++) {
-		kv_mod_devices[i].quantum = kv_mod_quantum;
-		kv_mod_devices[i].qset    = kv_mod_qset;
-		sema_init(&kv_mod_devices[i].sem, 1);
-		kv_mod_setup_cdev(&kv_mod_devices[i], i);
-	}
+    /* Initialize each device. */
+    init_vault(&(kv_mod_device->vault), kv_mod_quantum);
+    kv_mod_device->quantum = kv_mod_quantum;
+    kv_mod_device->qset    = kv_mod_qset;
+    sema_init(&(kv_mod_device->sem), 1);
+    kv_mod_setup_cdev(kv_mod_device, 0);
 
    /* only when debugging */
 #ifdef SCULL_DEBUG

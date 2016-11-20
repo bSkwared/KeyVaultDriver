@@ -1,0 +1,1 @@
+cmd_/home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv.ko := ld -r -m elf_i386 -T ./scripts/module-common.lds --build-id  -o /home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv.ko /home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv.o /home/lfs/KeyVaultDriver/Scull-Modified-For-HW4/kv.mod.o

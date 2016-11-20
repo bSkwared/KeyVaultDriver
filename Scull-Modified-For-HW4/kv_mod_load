@@ -1,6 +1,6 @@
 #!/bin/sh
 # $Id: scull_load,v 1.4 2004/11/03 06:19:49 rubini Exp $
-module="kv_kernel_mod"
+module="kv_mod"
 device="kv_kernel_mod"
 mode="777"
 
@@ -12,7 +12,7 @@ group="adm"
 /sbin/insmod ./$module.ko $* || exit 1
 
 # retrieve major number
-major=$(awk "\$2==\"kv_mod\" {print \$1}" /proc/devices)
+major=$(awk "\$2==\"$module\" {print \$1}" /proc/devices)
 echo $major
 
 # Remove stale nodes and replace them, then give gid and perms

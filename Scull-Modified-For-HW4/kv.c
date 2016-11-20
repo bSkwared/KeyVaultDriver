@@ -4,7 +4,7 @@
 
 #include <linux/slab.h>       /* for kmalloc*/
 #include <linux/string.h>     /* for memset*/
-#include "key_vault.h"
+#include "kv.h"
 
 /* the key vault:  once globally available, but now specified by a parameter */
 // static struct key_vault v;

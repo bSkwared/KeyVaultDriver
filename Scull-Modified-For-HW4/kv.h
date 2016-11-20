@@ -2,7 +2,8 @@
 /* Author:  Keith Shomper
  * Date:    8 Nov 2016
  * Purpose: Supports HW4 for CS3320 */
-
+#ifndef KV_H
+#define KV_H
 #define MAX_KEY_SIZE 20
 #define MAX_VAL_SIZE 20
 #define MAX_KEY_USER 20
@@ -119,3 +120,4 @@ int insert_in_list (struct kv_list **l, char *key, char *val);
 /* delete_from_list: deletes the referenced key-value pair from vault */
 void delete_from_list (struct kv_list **l);
 
+#endif

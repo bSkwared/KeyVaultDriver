@@ -65,16 +65,9 @@
 #define SCULL_QSET    1000
 #endif
 
-/*
- * Representation of kv_mod quantum sets.
- */
-struct kv_mod_qset {
-	void              **data;      /* an array or pointers to bytes    */
-	//struct kv_mod_qset  *next;      /* the next qset in the linked-list */
-};
-
 struct kv_mod_dev {
 	//struct key_vault    data;      /* Pointer to first quantum set     */
+    struct key_vault    vault;
 	int                 quantum;   /* the current quantum size         */
 	int                 qset;      /* the current array size           */
 	unsigned long       size;      /* amount of data stored here       */
