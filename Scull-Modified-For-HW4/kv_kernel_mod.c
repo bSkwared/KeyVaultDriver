@@ -114,18 +114,20 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
 		we save the handle to dev in the file's private_data for other methods.
 	 */
 	filp->private_data = dev;
-
-	/* now trim to 0 the length of the device if open was write-only */
-	if ( (filp->f_flags & O_ACCMODE) == O_WRONLY) {
-
-		/* grab the semaphore, so the call to trim() is atomic */
-		if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
-
-		kv_mod_trim(dev);
-
-		/* release the semaphore */
-		up(&dev->sem);
-	}
+    
+    /***   I DONT THINK WE NEED THIS CAUSE DONT ERASE ON WRITE ****/
+//
+//	/* now trim to 0 the length of the device if open was write-only */
+//	if ( (filp->f_flags & O_ACCMODE) == O_WRONLY) {
+//
+//		/* grab the semaphore, so the call to trim() is atomic */
+//		if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
+//
+//		kv_mod_trim(dev);
+//
+//		/* release the semaphore */
+//		up(&dev->sem);
+//	}
 
 	return 0;
 }
@@ -510,6 +512,7 @@ int kv_mod_init_module(void) {
 	if (kv_mod_major == 0) {
 		result      = alloc_chrdev_region(&dev,kv_mod_minor,kv_mod_nr_devs,"kv_mod");
 		kv_mod_major = MAJOR(dev);
+		kv_mod_minor = MINOR(dev);
 	} else {
 		dev    = MKDEV(kv_mod_major, kv_mod_minor);
 		result = register_chrdev_region(dev, kv_mod_nr_devs, "kv_mod");
