@@ -143,6 +143,7 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
  *          only in memory, there are no actions to take here.
  */
 int kv_mod_release(struct inode *inode, struct file *filp) {
+    close_vault(&kv_mod_device->vault);
 	return 0;
 }
 
