@@ -543,7 +543,7 @@ int kv_mod_init_module(void) {
 	memset(kv_mod_device, 0, sizeof(struct kv_mod_dev));
 
     /* Initialize each device. */
-    if (init_vault(&(kv_mod_device->vault), kv_mod_quantum)) {
+    if (!init_vault(&(kv_mod_device->vault), kv_mod_quantum)) {
         goto fail;
     }
 
