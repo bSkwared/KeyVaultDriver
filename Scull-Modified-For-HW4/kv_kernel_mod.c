@@ -27,6 +27,8 @@
 #include <linux/fcntl.h>	/* O_ACCMODE */
 #include <linux/seq_file.h>
 #include <linux/cdev.h>
+#include <linux/sched.h>
+#include <linux/cred.h>
 
 #include <asm/uaccess.h>	/* copy_*_user */
 
@@ -115,7 +117,7 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
 //	 */
 //	filp->private_data = dev;
 
-    filp->private_data = kv_mod_device;
+    filp->private_data = &(kv_mod_device->vault.ukey_data[get_current_user()->uid.val]);
     
     /***   I DONT THINK WE NEED THIS CAUSE DONT ERASE ON WRITE ****/
 //
