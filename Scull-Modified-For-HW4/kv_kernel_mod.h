@@ -70,6 +70,7 @@ struct kv_mod_dev {
     struct key_vault    vault;
 	int                 quantum;   /* the current quantum size         */
 	int                 qset;      /* the current array size           */
+    int readCount;
 	unsigned long       size;      /* amount of data stored here       */
 	struct semaphore    sem;       /* mutual exclusion semaphore       */
 	struct cdev         cdev;	    /* Char device structure	   	    */

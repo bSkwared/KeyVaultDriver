@@ -38,11 +38,13 @@
 /*
  * Our parameters which can be set at load time.
  */
+#define KV_MOD_QUANTUM SCULL_QUANTUM
 int kv_mod_major   = 0;
 int kv_mod_minor   = 0;
 int kv_mod_nr_devs = SCULL_NR_DEVS;
 int kv_mod_quantum = SCULL_QUANTUM;
 int kv_mod_qset    = SCULL_QSET;
+static int KLIQ = 3;
 
 module_param(kv_mod_major,   int, S_IRUGO);
 module_param(kv_mod_minor,   int, S_IRUGO);
@@ -101,7 +103,7 @@ int kv_mod_trim(struct kv_mod_dev *dev) {
 int kv_mod_open(struct inode *inode, struct file *filp) {
 //
 //   /* the device this function is handling (one of the kv_mod_devices) */
-//	struct kv_mod_dev *dev;
+	struct kv_mod_dev *dev;
 //
 //	/* we need the kv_mod_dev object (dev), but the required prototpye
 //      for the open method is that it receives a pointer to an inode.
@@ -110,28 +112,29 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
 //      to obtain the kv_mod_dev object (since kv_mod_dev also contains
 //      a cdev object.
 //    */
-//	dev = container_of(inode->i_cdev, struct kv_mod_dev, cdev);
+	dev = container_of(inode->i_cdev, struct kv_mod_dev, cdev);
 //
 //	/* so that we don't need to use the container_of() macro repeatedly,
 //		we save the handle to dev in the file's private_data for other methods.
 //	 */
-//	filp->private_data = dev;
+	filp->private_data = dev;
+    //dev->readCount = 5;
 
-    filp->private_data = &(kv_mod_device->vault.ukey_data[get_current_user()->uid.val]);
+   // filp->private_data = &(kv_mod_device->vault.ukey_data[get_current_user()->uid.val]);
     
     /***   I DONT THINK WE NEED THIS CAUSE DONT ERASE ON WRITE ****/
 //
 //	/* now trim to 0 the length of the device if open was write-only */
-//	if ( (filp->f_flags & O_ACCMODE) == O_WRONLY) {
+	if ( (filp->f_flags & O_ACCMODE) == O_WRONLY) {
 //
 //		/* grab the semaphore, so the call to trim() is atomic */
-//		if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
+		if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 //
-//		kv_mod_trim(dev);
+		kv_mod_trim(dev);
 //
 //		/* release the semaphore */
-//		up(&dev->sem);
-//	}
+		up(&dev->sem);
+	}
 
 	return 0;
 }
@@ -143,7 +146,6 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
  *          only in memory, there are no actions to take here.
  */
 int kv_mod_release(struct inode *inode, struct file *filp) {
-    close_vault(&kv_mod_device->vault);
 	return 0;
 }
 
@@ -207,74 +209,95 @@ int kv_mod_release(struct inode *inode, struct file *filp) {
 ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
                     loff_t *f_pos) {
 //
-//	struct kv_mod_dev  *dev  = filp->private_data; 
-//	struct kv_mod_qset *dptr;
-//
-//	int     quantum  = dev->quantum;
-//	int     qset     = dev->qset;
-//	int     itemsize = quantum * qset; /* number of bytes in the list item    */
-//	int     item, s_pos, q_pos, rest;  /* other variables for calculating pos */
-//	ssize_t retval   = 0;
-//
-//	/* acquire the semaphore */
-//	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
-//
-//	/* if the read position is beyond the end of the file, then goto exit
-//    * note that we can't simply return, because we are holding the
-//    * semaphore, "goto out" provides a single exit point that allows for
-//    * releasing the semaphore.
-//    */
-//	if (*f_pos >= dev->size) goto out;
-//
-//	if (*f_pos + count > dev->size) {
-//		count = dev->size - *f_pos;
-//	}
-//
-//	/* find listitem, qset index, and offset in the quantum */
-//	item = (long)*f_pos / itemsize;
-//	rest = (long)*f_pos % itemsize;
-//	s_pos = rest / quantum; q_pos = rest % quantum;
-//
-//	/* follow the list up to the right position (defined elsewhere) */
-//	dptr = kv_mod_follow(dev, item);
-//
-//	if (dptr == NULL || !dptr->data || ! dptr->data[s_pos])
-//		goto out; /* don't fill holes */
-//
-//	/* read only up to the end of this quantum */
-//	if (count > quantum - q_pos) {
-//		count = quantum - q_pos;
-//	}
-//
-//	/* this is where the actual "read" occurs, when we copy from the
-//    * in-memory data into the user-supplied buffer.  This copy is
-//    * handled by the copy_to_user() function, which handles the
-//    * transfer of data from kernel space data structures to user space
-//    * data structures.
-//    */
-//	if (copy_to_user(buf, dptr->data[s_pos] + q_pos, count)) {
-//		retval = -EFAULT;
-//		goto out;
-//	}
-//
-//	/* on successful copy, update the file position and return the number
-//    * of bytes read.
-//    */
-//	*f_pos += count;
-//	retval = count;
-//
-//	/* release the semaphore and return */
-//  out:
-//	up(&dev->sem);
-//	return retval;
-//    
-    return 1;
+    //char* wut = kmalloc(6*sizeof();
+	struct kv_mod_dev  *dev  = filp->private_data; 
+    //copy_to_user(buf, "key \0val", 6);
+	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
+	up(&dev->sem);
+
+    return 0;    //if (dev->readCount == 0) {
+
+
+            //dump_vault(&dev->vault, FORWARD);
+        //	struct kv_mod_qset *dptr;
+        //
+        //	int     quantum  = dev->quantum;
+        //	int     qset     = dev->qset;
+        //	int     itemsize = quantum * qset; /* number of bytes in the list item    */
+        //	int     item, s_pos, q_pos, rest;  /* other variables for calculating pos */
+        //	ssize_t retval   = 0;
+        //
+        //	/* acquire the semaphore */
+        //	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
+        //
+        //	/* if the read position is beyond the end of the file, then goto exit
+        //    * note that we can't simply return, because we are holding the
+        //    * semaphore, "goto out" provides a single exit point that allows for
+        //    * releasing the semaphore.
+        //    */
+        //	if (*f_pos >= dev->size) goto out;
+        //
+        //	if (*f_pos + count > dev->size) {
+        //		count = dev->size - *f_pos;
+        //	}
+        //
+        //	/* find listitem, qset index, and offset in the quantum */
+        //	item = (long)*f_pos / itemsize;
+        //	rest = (long)*f_pos % itemsize;
+        //	s_pos = rest / quantum; q_pos = rest % quantum;
+        //
+        //	/* follow the list up to the right position (defined elsewhere) */
+        //	dptr = kv_mod_follow(dev, item);
+        //
+        //	if (dptr == NULL || !dptr->data || ! dptr->data[s_pos])
+        //		goto out; /* don't fill holes */
+        //
+        //	/* read only up to the end of this quantum */
+        //	if (count > quantum - q_pos) {
+        //		count = quantum - q_pos;
+        //	}
+        //
+        //	/* this is where the actual "read" occurs, when we copy from the
+        //    * in-memory data into the user-supplied buffer.  This copy is
+        //    * handled by the copy_to_user() function, which handles the
+        //    * transfer of data from kernel space data structures to user space
+        //    * data structures.
+        //    */
+        //	if (copy_to_user(buf, dptr->data[s_pos] + q_pos, count)) {
+        //		retval = -EFAULT;
+        //		goto out;
+        //	}
+        //
+        //	/* on successful copy, update the file position and return the number
+        //    * of bytes read.
+        //    */
+        //	*f_pos += count;
+        //	retval = count;
+        //
+        //	/* release the semaphore and return */
+        //  out:
+        //	return retval;
+        //    
+            //    return 0;
+            //} else {
+            //    dev->readCount--;
+            //    return dev->readCount;
+            //}
 }
 
 ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
                      loff_t *f_pos) {
+	
+    printk(KERN_WARNING "kv: wusdfjsdfjdfsjddupp\n");
+    struct kv_mod_dev  *dev  = filp->private_data; 
+	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 
-	return 1;
+    //insert_pair(&dev->vault, get_current_user()->uid.val, "key", "val");
+    printk(KERN_WARNING "kv: wuddupp\n");
+    //dev->readCount = 5;
+    printk(KERN_WARNING "kv: lat one\n");
+	up(&dev->sem);
+	return count;
 }
 
 /*
@@ -479,6 +502,7 @@ void kv_mod_cleanup_module(void) {
 		/* free the referencing structures */
 		kfree(kv_mod_device);
 	}
+    //close_vault(&kv_mod_device->vault);
 
 #ifdef SCULL_DEBUG /* use proc only if debugging */
 	kv_mod_remove_proc();
@@ -546,19 +570,17 @@ int kv_mod_init_module(void) {
 	memset(kv_mod_device, 0, sizeof(struct kv_mod_dev));
 
     /* Initialize each device. */
-    if (!init_vault(&(kv_mod_device->vault), kv_mod_quantum)) {
+
+    //kv_mod_device->quantum = kv_mod_quantum;
+    //kv_mod_device->qset    = kv_mod_qset;
+    sema_init(&(kv_mod_device->sem), 1);
+    kv_mod_setup_cdev(kv_mod_device, 0);
+    //kv_mod_device->readCount = 5;
+    
+    if (!init_vault(&(kv_mod_device->vault), KV_MOD_QUANTUM)) {
         goto fail;
     }
 
-    kv_mod_device->quantum = kv_mod_quantum;
-    kv_mod_device->qset    = kv_mod_qset;
-    sema_init(&(kv_mod_device->sem), 1);
-    kv_mod_setup_cdev(kv_mod_device, 0);
-
-   /* only when debugging */
-#ifdef SCULL_DEBUG
-	kv_mod_create_proc();
-#endif
 
    /* succeed */
 	return 0;
