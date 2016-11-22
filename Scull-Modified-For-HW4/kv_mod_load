@@ -2,7 +2,7 @@
 # $Id: scull_load,v 1.4 2004/11/03 06:19:49 rubini Exp $
 module="kv_mod"
 device="kv_mod"
-mode="777"
+mode="666"
 
 # Group: since distributions do it differently, I used the group "adm"
 group="adm"

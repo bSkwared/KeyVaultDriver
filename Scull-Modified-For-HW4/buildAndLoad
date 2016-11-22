@@ -1,3 +1,4 @@
 #!/bin/sh
 make
+sudo ./kv_mod_unload
 sudo ./kv_mod_load

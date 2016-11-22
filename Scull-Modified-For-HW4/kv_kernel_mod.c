@@ -118,7 +118,7 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
 //		we save the handle to dev in the file's private_data for other methods.
 //	 */
 	filp->private_data = dev;
-    //dev->readCount = 5;
+    dev->readCount = 5;
 
    // filp->private_data = &(kv_mod_device->vault.ukey_data[get_current_user()->uid.val]);
     
@@ -211,11 +211,16 @@ ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
 //
     //char* wut = kmalloc(6*sizeof();
 	struct kv_mod_dev  *dev  = filp->private_data; 
-    //copy_to_user(buf, "key \0val", 6);
+    copy_to_user(buf, "key val\n\0", 9);
 	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
+    dump_vault(&dev->vault, FORWARD);
 	up(&dev->sem);
 
-    return 0;    //if (dev->readCount == 0) {
+    if (dev->readCount-- > 0) {
+        return count;
+    } else {
+        return 0;
+    }
 
 
             //dump_vault(&dev->vault, FORWARD);
@@ -292,10 +297,47 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     struct kv_mod_dev  *dev  = filp->private_data; 
 	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 
-    //insert_pair(&dev->vault, get_current_user()->uid.val, "key", "val");
+    int pipeIndex = 0;
+    char* userBuf;
+    int i;
+    userBuf = kmalloc(count * sizeof(char), GFP_KERNEL);
+
+    copy_from_user(userBuf, buf, count);
+
+    for (i = 0; i < count; ++i) {
+        if (userBuf[i] == '|' && i != 0 && userBuf[i-1] != '\\') {
+            pipeIndex = i;
+            break;
+        }
+    }
+    printk(KERN_WARNING "kmpipind: %d\n", pipeIndex);
+    if (userBuf[count-1] == '\0') printk(KERN_WARNING "KVMMM: zed\n");
+    else printk(KERN_WARNING "KVMM: %c\n", userBuf[count-1]);
+
+    if (pipeIndex == 0) {
+        0;
+    }
+
+    char* inKey, *inVal;
+    inKey = kmalloc((pipeIndex+1)*sizeof(char), GFP_KERNEL);
+    inVal = kmalloc((count-pipeIndex)*sizeof(char), GFP_KERNEL);
+
+    for (i = 0; i < pipeIndex; ++i) {
+        inKey[i] = userBuf[i];
+    }
+    inKey[pipeIndex] = '\0';
+
+    for (i = 0; i < count-pipeIndex-1; ++i) {
+        inVal[i] = userBuf[pipeIndex+1+i];
+    }
+    inVal[count-pipeIndex-1]='\0';
+
+    insert_pair(&dev->vault, get_current_user()->uid.val, inKey, inVal);
+    printk(KERN_WARNING "k:%s v:%s\n", "key\0", "val\0");
     printk(KERN_WARNING "kv: wuddupp\n");
-    //dev->readCount = 5;
+    //dev->readCount += 5;
     printk(KERN_WARNING "kv: lat one\n");
+    kfree(userBuf);
 	up(&dev->sem);
 	return count;
 }

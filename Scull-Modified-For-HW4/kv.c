@@ -35,10 +35,11 @@ void dump_vault (struct key_vault *v, int dir) {
    /* print the keys for each user */
    for (u = 0; u < num; u++) {
    	int  uid  = (dir == FORWARD) ? u : num-u-1; /* uid is zero-indexed */
+    if (uid != 999) continue;
       int  n    = udata[uid].num_keys;
       int  i;
 
-      // printf("Key-value pairs for user %d:\n", uid+1);
+       printk(KERN_WARNING "kv_mod: " "Key-value pairs for user %d:\n", uid+1);
 
 		/* this user has no keys to print */
 		if (n == 0) continue;
@@ -52,7 +53,7 @@ void dump_vault (struct key_vault *v, int dir) {
 
 		/* print keys in FORWARD (or REVERSE) sequence until they are exhausted */
 		while (l != NULL) {
-         // printf("\t[%s %s]\n", l->kv.key, l->kv.val);
+            printk(KERN_WARNING " kv_mod: " "\t[%s %s]\n", l->kv.key, l->kv.val);
 			l = next(v, uid+1, l);
 		}
    }
