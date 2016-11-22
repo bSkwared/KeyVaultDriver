@@ -11,10 +11,12 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#include "key_vault.h"
+//#include "key_vault.h"
 
 #define  MAX_USERS 20
 #define  BUF_SIZE  80
+#define MAX_VAL_SIZE 30
+#define MAX_KEY_SIZE 30
 
 int main () {
 	char buf[BUF_SIZE];
