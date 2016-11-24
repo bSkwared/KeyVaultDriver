@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#include "key_vault.h"
+//#include "key_vault.h"
 
 #define  MAX_USERS 20
 #define  BUF_SIZE  80

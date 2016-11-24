@@ -435,11 +435,13 @@ void delete_from_list (struct kv_list **la) {
 	/* cause previous element in list to reference what appears after l */
 	if (p != NULL) {
 		p->next = n;
+        printk("KV: prv {%s, %s}\n", p->kv.key, p->kv.val);
 	}
 
 	/* cause next element in list to reference what appears before l */
 	if (n != NULL) {
 		n->prev = p;
+        printk("KV: nxt {%s, %s}\n", n->kv.key, n->kv.val);
 	}
 
 	kfree(*la);

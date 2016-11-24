@@ -1,4 +1,9 @@
 #!/bin/sh
 make
-sudo ./kv_mod_unload
-sudo ./kv_mod_load
+if [ $? -eq 0 ]
+then
+    sudo ./kv_mod_unload
+    sudo ./kv_mod_load
+else
+    printf "ERROR\n"
+fi

@@ -291,7 +291,35 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
 
 
     if (spaceIndex == 0) {
-        return 0;
+        printk("delf: yup\n");
+        struct kv_list* newFp;
+        if (userVault->fp == NULL) {
+            printk("KV: nudding\n");
+            newFp = NULL;
+        } else {
+            if (userVault->fp->next != NULL) {
+                newFp = userVault->fp->next;
+                printk("KV: getting next\n");
+            } else {
+                newFp = next_key(keyVault, uid, userVault->fp);
+                printk("KV: moving down the latter\n");
+            }
+            if (userVault->fp->prev != NULL) {
+                delete_from_list(&userVault->fp);
+            } else {
+                delete_pair(keyVault, uid, userVault->fp->kv.key, userVault->fp->kv.val);
+            }
+        }
+
+        
+        
+        if ((userVault->fp = newFp) != NULL) {
+            printk("KV: newFp {%s, %s}\n", userVault->fp->kv.key, userVault->fp->kv.val);
+        }
+
+        kfree(userBuf);
+	    up(&dev->sem);
+        return count;
     }
 
     int keyLen = spaceIndex + 1;
