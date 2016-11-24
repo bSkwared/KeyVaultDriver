@@ -35,7 +35,6 @@ void dump_vault (struct key_vault *v, int dir) {
    /* print the keys for each user */
    for (u = 0; u < num; u++) {
    	int  uid  = (dir == FORWARD) ? u : num-u-1; /* uid is zero-indexed */
-    if (uid != 999) continue;
       int  n    = udata[uid].num_keys;
       int  i;
 

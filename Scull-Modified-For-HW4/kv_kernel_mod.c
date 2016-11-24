@@ -213,6 +213,8 @@ ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
     copy_to_user(buf, "key val\n\0", 9);
 	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
     dump_vault(&dev->vault, FORWARD);
+    
+
 	up(&dev->sem);
 
     if (dev->readCount-- > 0) {
@@ -299,6 +301,12 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     int spaceIndex = 0;
     char* userBuf;
     int i;
+
+    int uid = get_current_user()->uid.val;
+
+    struct key_vault* keyVault  = &(dev->vault);
+    struct kv_list_h* userVault = &(dev->vault.ukey_data[uid]);
+
     userBuf = kmalloc(count * sizeof(char), GFP_KERNEL);
 
     copy_from_user(userBuf, buf, count);
@@ -340,9 +348,13 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     }
     inVal[valLen-1]='\0';
 
-    insert_pair(&dev->vault, get_current_user()->uid.val, inKey, inVal);
+    insert_pair(keyVault, uid, inKey, inVal);
     printk(KERN_WARNING "{%s, %s}\n", inKey, inVal);
 
+    userVault->fp = find_key_val(keyVault, uid, inKey, inVal);
+    printk("INSERTED: %s   %s\n", userVault->fp->kv.key, userVault->fp->kv.val);
+
+    
     kfree(inVal);
     kfree(inKey);
     kfree(userBuf);
