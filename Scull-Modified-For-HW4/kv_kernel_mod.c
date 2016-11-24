@@ -124,16 +124,20 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
     /***   I DONT THINK WE NEED THIS CAUSE DONT ERASE ON WRITE ****/
 //
 //	/* now trim to 0 the length of the device if open was write-only */
-	if ( (filp->f_flags & O_ACCMODE) == O_WRONLY) {
-//
-//		/* grab the semaphore, so the call to trim() is atomic */
-		if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
-//
-		kv_mod_trim(dev);
+    if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
+    int uid = get_current_user()->uid.val;
+
+    struct key_vault* keyVault  = &(dev->vault);
+    struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
+    
+    if (userVault->data != NULL) {
+        userVault->fp = userVault->data[0];
+    } else {
+        userVault->fp = NULL;
+    }
 //
 //		/* release the semaphore */
 		up(&dev->sem);
-	}
 
 	return 0;
 }
@@ -210,85 +214,47 @@ ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
 //
     //char* wut = kmalloc(6*sizeof();
 	struct kv_mod_dev  *dev  = filp->private_data; 
-    copy_to_user(buf, "key val\n\0", 9);
 	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
-    dump_vault(&dev->vault, FORWARD);
+    //dump_vault(&dev->vault, FORWARD);
     
+    int uid = get_current_user()->uid.val;
 
-	up(&dev->sem);
-
-    if (dev->readCount-- > 0) {
-        return count;
-    } else {
+    struct key_vault* keyVault  = &(dev->vault);
+    struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
+    
+    struct kv_list* node = userVault->fp;
+    
+    if (node == NULL) {
+	    up(&dev->sem);
         return 0;
     }
 
 
-            //dump_vault(&dev->vault, FORWARD);
-        //	struct kv_mod_qset *dptr;
-        //
-        //	int     quantum  = dev->quantum;
-        //	int     qset     = dev->qset;
-        //	int     itemsize = quantum * qset; /* number of bytes in the list item    */
-        //	int     item, s_pos, q_pos, rest;  /* other variables for calculating pos */
-        //	ssize_t retval   = 0;
-        //
-        //	/* acquire the semaphore */
-        //	if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
-        //
-        //	/* if the read position is beyond the end of the file, then goto exit
-        //    * note that we can't simply return, because we are holding the
-        //    * semaphore, "goto out" provides a single exit point that allows for
-        //    * releasing the semaphore.
-        //    */
-        //	if (*f_pos >= dev->size) goto out;
-        //
-        //	if (*f_pos + count > dev->size) {
-        //		count = dev->size - *f_pos;
-        //	}
-        //
-        //	/* find listitem, qset index, and offset in the quantum */
-        //	item = (long)*f_pos / itemsize;
-        //	rest = (long)*f_pos % itemsize;
-        //	s_pos = rest / quantum; q_pos = rest % quantum;
-        //
-        //	/* follow the list up to the right position (defined elsewhere) */
-        //	dptr = kv_mod_follow(dev, item);
-        //
-        //	if (dptr == NULL || !dptr->data || ! dptr->data[s_pos])
-        //		goto out; /* don't fill holes */
-        //
-        //	/* read only up to the end of this quantum */
-        //	if (count > quantum - q_pos) {
-        //		count = quantum - q_pos;
-        //	}
-        //
-        //	/* this is where the actual "read" occurs, when we copy from the
-        //    * in-memory data into the user-supplied buffer.  This copy is
-        //    * handled by the copy_to_user() function, which handles the
-        //    * transfer of data from kernel space data structures to user space
-        //    * data structures.
-        //    */
-        //	if (copy_to_user(buf, dptr->data[s_pos] + q_pos, count)) {
-        //		retval = -EFAULT;
-        //		goto out;
-        //	}
-        //
-        //	/* on successful copy, update the file position and return the number
-        //    * of bytes read.
-        //    */
-        //	*f_pos += count;
-        //	retval = count;
-        //
-        //	/* release the semaphore and return */
-        //  out:
-        //	return retval;
-        //    
-            //    return 0;
-            //} else {
-            //    dev->readCount--;
-            //    return dev->readCount;
-            //}
+    if (node->next == NULL) {
+        userVault->fp = next_key(keyVault, uid, userVault->fp);
+    } else {
+        userVault->fp = node->next;
+    }
+
+    int keyLen = strlen(node->kv.key);
+    int valLen = strlen(node->kv.val);
+
+    char* outBuf = kmalloc((keyLen + valLen + 8) * sizeof(char), GFP_KERNEL);
+    sprintf(outBuf, "{%s, %s}", node->kv.key, node->kv.val);
+
+    copy_to_user(buf, outBuf, keyLen+valLen+8);
+	up(&dev->sem);
+
+    int retVal = strlen(outBuf);
+    kfree(outBuf);
+    return retVal;
+    
+    /*
+    if (dev->readCount-- > 0) {
+        return count;
+    } else {
+        return 0;
+    }*/
 }
 
 ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
@@ -305,7 +271,7 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     int uid = get_current_user()->uid.val;
 
     struct key_vault* keyVault  = &(dev->vault);
-    struct kv_list_h* userVault = &(dev->vault.ukey_data[uid]);
+    struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
 
     userBuf = kmalloc(count * sizeof(char), GFP_KERNEL);
 
@@ -351,7 +317,7 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     insert_pair(keyVault, uid, inKey, inVal);
     printk(KERN_WARNING "{%s, %s}\n", inKey, inVal);
 
-    userVault->fp = find_key_val(keyVault, uid, inKey, inVal);
+    userVault->fp = get_last_in_list(find_key_val(keyVault, uid, inKey, inVal));
     printk("INSERTED: %s   %s\n", userVault->fp->kv.key, userVault->fp->kv.val);
 
     

@@ -90,7 +90,7 @@ void close_vault (struct key_vault *v) {
 int num_keys (struct key_vault *v, int uid) {
 	if (uid < 1 || uid > v->num_users) return -1;
 	
-	return v->ukey_data[uid].num_keys;
+	return v->ukey_data[uid-1].num_keys;
 }
 
 /* rem_keys:  how many additional unique keys may yet be inserted by user */
@@ -98,7 +98,7 @@ int num_keys (struct key_vault *v, int uid) {
 int rem_keys (struct key_vault *v, int uid) {
 	if (uid < 1 || uid > v->num_users) return -1;
 	
-	return MAX_KEY_USER - v->ukey_data[uid].num_keys;
+	return MAX_KEY_USER - v->ukey_data[uid-1].num_keys;
 }
 
 /* num_pairs(int):  how many total key-value pairs have been inserted by user */
@@ -106,7 +106,7 @@ int rem_keys (struct key_vault *v, int uid) {
 int num_pairs (struct key_vault *v, int uid) {
 	if (uid < 1 || uid > v->num_users) return -1;
 	
-	return v->ukey_data[uid].total_key_val_pairs;
+	return v->ukey_data[uid-1].total_key_val_pairs;
 }
 
 /* num_vkeys(void):  how many unique keys have been inserted into vault */
