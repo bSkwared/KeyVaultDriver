@@ -18,9 +18,10 @@
  */
 
 /* Use 'k' as magic number - please use a different 8-bit number in your code */
-#define KV_MOD_IOC_MAGIC  'B'
-#define KV_MOD_IOCSKEY     _IOW (KV_MOD_IOC_MAGIC,   1, char)
-#define KV_MOD_IOCGKEY     _IOR (KV_MOD_IOC_MAGIC,   5, char)
+#define KV_IOC_MAGIC 'B'
+#define KV_SEEK_KEY  _IOW (KV_IOC_MAGIC,   0, char*)
+#define KV_SEEK_PAIR _IOW (KV_IOC_MAGIC,   1, char*)
+#define KV_NUM_KEYS  _IO  (KV_IOC_MAGIC,   2       )
 
 int main (int argc, char **argv) {
 	int  fd;
@@ -37,8 +38,8 @@ int main (int argc, char **argv) {
    }
 	
 	printf("Setting current key is %s\n", argv[1]);
-	ioctl(fd, KV_MOD_IOCSKEY, argv[1]);
-	rc = lseek(fd, 0, 0);
+	ioctl(fd, KV_SEEK_PAIR, argv[1]);
+	rc = llseek(fd, 0, 0);
 	printf("lseek return code is %d\n", rc);
 
 	if (rc) {

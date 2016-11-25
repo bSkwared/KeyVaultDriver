@@ -245,9 +245,9 @@ ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
     copy_to_user(buf, outBuf, keyLen+valLen+8);
     up(&dev->sem);
 
-    int retVal = strlen(outBuf);
+    int retval = strlen(outBuf);
     kfree(outBuf);
-    return retVal;
+    return retval;
     
     /*
     if (dev->readCount-- > 0) {
@@ -264,8 +264,6 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     struct kv_mod_dev  *dev  = filp->private_data; 
     if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 
-    int spaceIndex = 0;
-    char* userBuf;
     int i;
 
     int uid = get_current_user()->uid.val;
@@ -273,11 +271,13 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     struct key_vault* keyVault  = &(dev->vault);
     struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
 
+
+
+    char* userBuf;
     userBuf = kmalloc(count * sizeof(char), GFP_KERNEL);
-
     copy_from_user(userBuf, buf, count);
-
     
+    int spaceIndex = 0;
     for (i = 0; i < count; ++i) {
         if (userBuf[i] == ' ' && i != 0 && userBuf[i-1] != '\\') {
             spaceIndex = i;
@@ -381,12 +381,13 @@ long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
     struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
 
     
+    printk("KV: in ioctl\n");
     /*
      * extract the type and number bitfields, and don't decode
      * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
      */
-    if (_IOC_TYPE(cmd) != SCULL_IOC_MAGIC) return -ENOTTY;
-    if (_IOC_NR(cmd)   >  SCULL_IOC_MAXNR) return -ENOTTY;
+    if (_IOC_TYPE(cmd) != KV_IOC_MAGIC) return -ENOTTY;
+    if (_IOC_NR(cmd)   >  KV_IOC_MAXNR) return -ENOTTY;
 
     /*
      * the direction is a bitmask, and VERIFY_WRITE catches R/W
@@ -404,40 +405,37 @@ long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
     if (err) return -EFAULT;
     if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 
-    char* buf;
 
     /* parse the incoming command */
     switch(cmd) {
 
       /* Reset: values are compile-time defines */
       case KV_SEEK_KEY:
-        buf = kmalloc( MAX_KEY_SIZE * sizeof(char), GFP_KERNEL);
-        copy_from_user(buf, (char*)arg, MAX_KEY_SIZE);
-        
-
-        kfree(buf);
-        kv_mod_quantum = SCULL_QUANTUM;
-        kv_mod_qset    = SCULL_QSET;
+        copy_from_user(dev->keyValQuery, (char*)arg, MAX_KEY_SIZE);
+        dev->queryType = 1;
         break;
         
       /* Set: arg points to the value */
       case KV_SEEK_PAIR:
-        retval = __get_user(kv_mod_quantum, (int __user *)arg);
+        copy_from_user(dev->keyValQuery, (char*)arg, MAX_KEY_SIZE+MAX_VAL_SIZE);
+        dev->queryType = 2;
         break;
 
       /* Tell: arg is the value */
       case KV_NUM_KEYS:
-        kv_mod_quantum = arg;
+        dev->queryType = 0;
+        retval = num_keys(keyVault, uid);
         break;
 
      /* redundant, as cmd was checked against MAXNR */
       default:
+        dev->queryType = 0;
         up(&dev->sem);
         return -ENOTTY;
     }
     
     up(&dev->sem);
-    return 11;
+    return retval;
 }
 
 
@@ -446,6 +444,85 @@ long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
  * Seek:  the only one of the "extended" operations which kv_mod implements.
  */
 loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
+
+
+    int err    = 0, tmp;
+    int retval = 0;
+
+    struct kv_mod_dev  *dev  = filp->private_data; 
+
+//    int spaceIndex = 0;
+//    char* userBuf;
+    int i;
+            printk("KV: in llseek  %d\n", dev->queryType);
+
+    int uid = get_current_user()->uid.val;
+
+    struct key_vault* keyVault  = &(dev->vault);
+    struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
+
+            char* key;
+            char* val;
+            char* userBuf = dev->keyValQuery;
+            struct kv_list* keyStart;
+            int t;
+            struct kv_list* firstMatchingPair;
+            int spaceIndex = 0;
+            int keyLen = spaceIndex + 1;
+            int valLen = i - spaceIndex;
+    switch (dev->queryType) {
+        case 1:
+            keyStart = find_key(keyVault, uid, dev->keyValQuery, &t);
+            if (keyStart != NULL) {
+                userVault->fp = keyStart;
+            }
+            dev->queryType = 0;
+            break;
+        case 2:
+            printk("KV: Searching pear\n");
+            key = kmalloc(MAX_KEY_SIZE*sizeof(char), GFP_KERNEL);
+            val = kmalloc(MAX_VAL_SIZE*sizeof(char), GFP_KERNEL);
+
+            for (i = 1; i < MAX_KEY_SIZE; ++i) {
+                if (userBuf[i] == ' ' && userBuf[i-1] != '\\') {
+                    spaceIndex = i;
+                    break;
+                }
+            }
+
+            printk("KV: userbfff %s\n", userBuf);
+    while (i < MAX_KEY_SIZE+MAX_VAL_SIZE && userBuf[++i]);
+            keyLen = spaceIndex + 1;
+            valLen = i - spaceIndex;
+
+            for (i = 0; i < keyLen-1; ++i) {
+                key[i] = userBuf[i];
+            }
+            key[keyLen-1] = '\0';
+
+            for (i = 0; i < valLen-1; ++i) {
+                val[i] = userBuf[spaceIndex+1+i];
+            }
+            val[valLen-1]='\0';
+
+            printk("KV:  key %s    val %s\n", key, val);
+
+            firstMatchingPair = find_key_val(keyVault, uid, key, val);
+                printk("KV: no comprenday   %p\n", firstMatchingPair);
+            if (firstMatchingPair != NULL) {
+                userVault->fp = firstMatchingPair;
+            }
+
+            kfree(key);
+            kfree(val);
+            dev->queryType = 0;
+
+            break;
+        default:
+            break;
+    }
+
+
 //
 //  struct kv_mod_dev *dev    = filp->private_data;
 //  loff_t            newpos;

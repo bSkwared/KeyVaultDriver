@@ -71,6 +71,8 @@ struct kv_mod_dev {
 	int                 quantum;   /* the current quantum size         */
 	int                 qset;      /* the current array size           */
     int readCount;
+    char keyValQuery[MAX_KEY_SIZE+MAX_VAL_SIZE];
+    int   queryType;
 	unsigned long       size;      /* amount of data stored here       */
 	struct semaphore    sem;       /* mutual exclusion semaphore       */
 	struct cdev         cdev;	    /* Char device structure	   	    */
@@ -114,9 +116,9 @@ long    kv_mod_ioctl (struct file *filp, unsigned int cmd, unsigned long arg);
  * SEEK_PAIR Set fp to first node with specified key/val pair
  * NUM_KEYS  Get number of keys used
  */
-#define KV_SEEK_KEY   _IO  (SCULL_IOC_MAGIC,   0,      )
-#define KV_SEEK_PAIR  _IO  (SCULL_IOC_MAGIC,   1,      )
-#define KV_NUM_KEYS   _IOW (SCULL_IOC_MAGIC,   2, char*)
-#define KV_IOC_MAXNR                           2
+#define KV_SEEK_KEY   _IOW (KV_IOC_MAGIC,   0, char*)
+#define KV_SEEK_PAIR  _IOW (KV_IOC_MAGIC,   1, char*)
+#define KV_NUM_KEYS   _IO  (KV_IOC_MAGIC,   2       )
+#define KV_IOC_MAXNR                        2
 
 #endif /* _SCULL_H_ */
