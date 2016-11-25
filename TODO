@@ -6,11 +6,12 @@ Completed:
   kv_mod device, which will not over-write data structure on write).
 - Modify the .h and .c files to replace references to "scull" with "kv_mod"
 - Strip out qset data structure
-
-TODO:
 - Install new key_vault structure
 - Modify key_vault by replacing C library functions w/kernel counterparts
+
+TODO:
 - Modify read, write(), etc. to work with new structures
+    + Use perror code stuz
 - Modify ioctl #defines
 - Implement ioctls
 - Test

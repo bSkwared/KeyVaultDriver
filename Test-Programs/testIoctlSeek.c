@@ -18,7 +18,7 @@
  */
 
 /* Use 'k' as magic number - please use a different 8-bit number in your code */
-#define KV_MOD_IOC_MAGIC  'k'
+#define KV_MOD_IOC_MAGIC  'B'
 #define KV_MOD_IOCSKEY     _IOW (KV_MOD_IOC_MAGIC,   1, char)
 #define KV_MOD_IOCGKEY     _IOR (KV_MOD_IOC_MAGIC,   5, char)
 
