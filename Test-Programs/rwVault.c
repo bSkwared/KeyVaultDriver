@@ -12,14 +12,16 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <string.h>
-#include "key_vault.h"
 
 #define  MAX_USERS 20
 #define  BUF_SIZE  80
+#define MAX_KEY_SIZE 20
+#define MAX_VAL_SIZE 20
 
-#define KV_MOD_IOC_MAGIC  'k'
-#define KV_MOD_IOCSKEY     _IOW (KV_MOD_IOC_MAGIC,   1, char)
-#define KV_MOD_IOCGKEY     _IOR (KV_MOD_IOC_MAGIC,   5, char)
+#define KV_IOC_MAGIC  'B'
+#define KV_SEEK_KEY   _IOW (KV_IOC_MAGIC,   0, char*)
+#define KV_SEEK_PAIR  _IOW (KV_IOC_MAGIC,   1, char*)
+#define KV_NUM_KEYS   _IO  (KV_IOC_MAGIC,   2       )
 
 int main () {
 	char buf[BUF_SIZE];
@@ -50,27 +52,25 @@ int main () {
 	}
 
 	/* seek to first key */
-	sprintf(buf, "%s %s", key, val);
-	ioctl(fd, KV_MOD_IOCSKEY, buf);
+	sprintf(buf, "%s %s", "hey", "1");
+	ioctl(fd, KV_SEEK_PAIR, buf);
 	rc = lseek(fd, 0, 0);
 	if (rc) fprintf(stderr, "Resetting to key '%s'\n", buf);
 
 	/* delete odd keys, print even keys */
 	i  = 1;
 	while (rc = read(fd, buf, count)) {
-		if (count > 0) {
-			if (i % 2) {
-				ioctl(fd, KV_MOD_IOCSKEY, buf);
-				rc = lseek(fd, 0, 0);
-				if (rc) write(fd, "", 1);
-			} else {
-				printf("Key %2d:  %s\n", i, buf);
-			}
-			i++;
+		if (i % 2) {
+            printf("\t\tSearch for %s\n", buf);
+			ioctl(fd, KV_SEEK_PAIR, buf);
+			rc = lseek(fd, 0, 0);
+			if (rc){
+                write(fd, "", 1);
+            }
 		} else {
-			perror("read");
-			break;
+			printf("Key %2d:  %s\n", i, buf);
 		}
+		i++;
 	}
 
    close(fd);

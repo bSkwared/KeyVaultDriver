@@ -61,7 +61,7 @@ struct kv_mod_dev *kv_mod_device = NULL;
  * Release the memory held by the kv_mod device; must be called with the device
  * semaphore held.  Requires that dev not be NULL
  */
-int kv_mod_trim(struct kv_mod_dev *dev) {
+//void kv_mod_split_pair(char* pair, char** key, char** val) {
 //  struct kv_mod_qset *next, *dptr;
 //  int qset = dev->qset;
 //  int i;
@@ -93,8 +93,8 @@ int kv_mod_trim(struct kv_mod_dev *dev) {
 //  dev->qset    = kv_mod_qset;
 //  dev->data    = NULL;
 //
-    return 0;
-}
+//    return 0;
+//}
 
 /*
  * Open: to open the device is to initialize it for the remaining methods.
@@ -137,7 +137,7 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
     }
 //
 //      /* release the semaphore */
-        up(&dev->sem);
+    up(&dev->sem);
 
     return 0;
 }
@@ -153,56 +153,6 @@ int kv_mod_release(struct inode *inode, struct file *filp) {
 }
 
 /*
- * Follow the list--used by kv_mod_read() and kv_mod_write() to find the
- *                  item in the list that corresponds to the file's
- *                  "file position" pointer.  If the file position is
- *                  beyond the end of the file, then items are added
- *                  to extend the file, this is typical file-oriented
- *                  behavior.
- */
-//struct kv_mod_qset *kv_mod_follow(struct kv_mod_dev *dev, int n) {
-//
-//  /* get the first item in the list */
-//  struct kv_mod_qset *qs = dev->data;
-//
-//   /* allocate first qset explicitly if need be */
-//  if (qs == NULL) {
-//
-//      /* allocate and also set the data field to rference this item */
-//      qs = dev->data = kmalloc(sizeof(struct kv_mod_qset), GFP_KERNEL);
-//
-//      /* if the allocation fails, return NULL */
-//      if (qs == NULL) return NULL;
-//
-//      /* initialize the qset to all zeros */
-//      memset(qs, 0, sizeof(struct kv_mod_qset));
-//  }
-//
-//  /* follow the list to item n */
-//  while (n--) {
-//
-//      /* if there is no next item in the list, allocate one */
-//      if (qs->next == NULL) {
-//
-//          /* allocate and return NULL on failure as before */
-//          qs->next = kmalloc(sizeof(struct kv_mod_qset), GFP_KERNEL);
-//          if (qs->next == NULL) return NULL;
-//
-//          /* or zero the memory */
-//          memset(qs->next, 0, sizeof(struct kv_mod_qset));
-//      }
-//
-//      /* advance to next item */
-//      qs = qs->next;
-//
-//      /* curious -- continue; */
-//  }
-//
-//  /* return the qset associated with the n-th item */
-//  return qs;
-//}
-//
-/*
  * Read: implements the read action on the device by reading count
  *       bytes into buf beginning at file position f_pos from the file 
  *       referenced by filp.  The attribute "__user" is a gcc extension
@@ -211,11 +161,10 @@ int kv_mod_release(struct inode *inode, struct file *filp) {
  */
 ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
                     loff_t *f_pos) {
-//
-    //char* wut = kmalloc(6*sizeof();
+
+
     struct kv_mod_dev  *dev  = filp->private_data; 
     if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
-    //dump_vault(&dev->vault, FORWARD);
     
     int uid = get_current_user()->uid.val;
 
@@ -224,7 +173,9 @@ ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
     
     struct kv_list* node = userVault->fp;
     
+    
     if (node == NULL) {
+        printk("KV_READ: retern cause null node\n");
         up(&dev->sem);
         return 0;
     }
@@ -240,38 +191,22 @@ ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
     int valLen = strlen(node->kv.val);
 
     char* outBuf = kmalloc((keyLen + valLen + 8) * sizeof(char), GFP_KERNEL);
-    sprintf(outBuf, "{%s, %s}", node->kv.key, node->kv.val);
+    sprintf(outBuf, "%s %s", node->kv.key, node->kv.val);
 
     copy_to_user(buf, outBuf, keyLen+valLen+8);
-    up(&dev->sem);
 
     int retval = strlen(outBuf);
     kfree(outBuf);
+
+    up(&dev->sem);
     return retval;
-    
-    /*
-    if (dev->readCount-- > 0) {
-        return count;
-    } else {
-        return 0;
-    }*/
 }
 
 ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
                      loff_t *f_pos) {
     
-    printk(KERN_WARNING "kv: wusdfjsdfjdfsjddupp\n");
-    struct kv_mod_dev  *dev  = filp->private_data; 
-    if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
 
     int i;
-
-    int uid = get_current_user()->uid.val;
-
-    struct key_vault* keyVault  = &(dev->vault);
-    struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
-
-
 
     char* userBuf;
     userBuf = kmalloc(count * sizeof(char), GFP_KERNEL);
@@ -287,74 +222,81 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
 
 
     while (i < count && userBuf[++i]);
-    printk(KERN_WARNING "kmi   spac: %d, end: %d\n", spaceIndex, i);
+    printk(KERN_WARNING "KV_WRITE:   spac: %d, end: %d\n", spaceIndex, i);
 
+    struct kv_mod_dev  *dev         = filp->private_data; 
+    if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
+    
+    int                 uid         = get_current_user()->uid.val;
+    struct key_vault*   keyVault    = &(dev->vault);
+    struct kv_list_h*   userVault   = &(dev->vault.ukey_data[uid-1]);
 
     if (spaceIndex == 0) {
-        printk("delf: yup\n");
+        printk("KV_WRITE: do delete\n");
         struct kv_list* newFp;
         if (userVault->fp == NULL) {
-            printk("KV: nudding\n");
+            printk("KV_WRITE_DEL: fp already eof\n");
             newFp = NULL;
         } else {
             if (userVault->fp->next != NULL) {
                 newFp = userVault->fp->next;
-                printk("KV: getting next\n");
+                printk("KV_WRITE_DEL: next val\n");
             } else {
                 newFp = next_key(keyVault, uid, userVault->fp);
-                printk("KV: moving down the latter\n");
+                printk("KV_WRITE_DEL: next key\n");
             }
-            if (userVault->fp->prev != NULL) {
-                delete_from_list(&userVault->fp);
-            } else {
+            printk("KV_WRITE_DEL: deleting {%s, %s}\n", userVault->fp->kv.val, userVault->fp->kv.key);
+            //if (userVault->fp->prev != NULL) {
+            //    delete_from_list(&userVault->fp);
+            //    printk("KV_WRITE_DEL: from list);
+            //} else {
                 delete_pair(keyVault, uid, userVault->fp->kv.key, userVault->fp->kv.val);
-            }
+            //}
         }
 
         
         
         if ((userVault->fp = newFp) != NULL) {
-            printk("KV: newFp {%s, %s}\n", userVault->fp->kv.key, userVault->fp->kv.val);
+            printk("KV_WRITE_DEL: newFp {%s, %s}\n", userVault->fp->kv.key, userVault->fp->kv.val);
         }
 
         kfree(userBuf);
-        up(&dev->sem);
-        return count;
+    } else {
+
+        int keyLen = spaceIndex + 1;
+        int valLen = i - spaceIndex;
+
+        printk(KERN_WARNING "k: %d,  v: %d\n", keyLen, valLen);
+
+        char* inKey, *inVal;
+
+        inKey = kmalloc(keyLen*sizeof(char), GFP_KERNEL);
+        inVal = kmalloc(valLen*sizeof(char), GFP_KERNEL);
+
+        for (i = 0; i < keyLen-1; ++i) {
+            inKey[i] = userBuf[i];
+        }
+        inKey[keyLen-1] = '\0';
+
+        for (i = 0; i < valLen-1; ++i) {
+            inVal[i] = userBuf[spaceIndex+1+i];
+        }
+        inVal[valLen-1]='\0';
+
+        insert_pair(keyVault, uid, inKey, inVal);
+        printk(KERN_WARNING "{%s, %s}\n", inKey, inVal);
+
+        userVault->fp = get_last_in_list(find_key_val(keyVault, uid, inKey, inVal));
+        printk("INSERTED: %s   %s\n", userVault->fp->kv.key, userVault->fp->kv.val);
+
+        
+        kfree(inVal);
+        kfree(inKey);
+        kfree(userBuf);
     }
 
-    int keyLen = spaceIndex + 1;
-    int valLen = i - spaceIndex;
 
-    printk(KERN_WARNING "k: %d,  v: %d\n", keyLen, valLen);
-
-    char* inKey, *inVal;
-
-    inKey = kmalloc(keyLen*sizeof(char), GFP_KERNEL);
-    inVal = kmalloc(valLen*sizeof(char), GFP_KERNEL);
-
-    for (i = 0; i < keyLen-1; ++i) {
-        inKey[i] = userBuf[i];
-    }
-    inKey[keyLen-1] = '\0';
-
-    for (i = 0; i < valLen-1; ++i) {
-        inVal[i] = userBuf[spaceIndex+1+i];
-    }
-    inVal[valLen-1]='\0';
-
-    insert_pair(keyVault, uid, inKey, inVal);
-    printk(KERN_WARNING "{%s, %s}\n", inKey, inVal);
-
-    userVault->fp = get_last_in_list(find_key_val(keyVault, uid, inKey, inVal));
-    printk("INSERTED: %s   %s\n", userVault->fp->kv.key, userVault->fp->kv.val);
-
-    
-    kfree(inVal);
-    kfree(inKey);
-    kfree(userBuf);
     up(&dev->sem);
-
-
     return count;
 }
 
@@ -381,7 +323,7 @@ long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
     struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
 
     
-    printk("KV: in ioctl\n");
+    printk("KV_IOCTL: cmd: %d\n", cmd);
     /*
      * extract the type and number bitfields, and don't decode
      * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
@@ -413,12 +355,14 @@ long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
       case KV_SEEK_KEY:
         copy_from_user(dev->keyValQuery, (char*)arg, MAX_KEY_SIZE);
         dev->queryType = 1;
+        printk("KV_IOCTL: SEEK_KEY\n");
         break;
         
       /* Set: arg points to the value */
       case KV_SEEK_PAIR:
         copy_from_user(dev->keyValQuery, (char*)arg, MAX_KEY_SIZE+MAX_VAL_SIZE);
         dev->queryType = 2;
+        printk("KV_IOCTL: SEEK_PAIR\n");
         break;
 
       /* Tell: arg is the value */
@@ -454,7 +398,7 @@ loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
 //    int spaceIndex = 0;
 //    char* userBuf;
     int i;
-            printk("KV: in llseek  %d\n", dev->queryType);
+            printk("KV_SEEK: type:  %d\n", dev->queryType);
 
     int uid = get_current_user()->uid.val;
 
@@ -475,11 +419,11 @@ loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
             keyStart = find_key(keyVault, uid, dev->keyValQuery, &t);
             if (keyStart != NULL) {
                 userVault->fp = keyStart;
+                retval = 1;
             }
             dev->queryType = 0;
             break;
         case 2:
-            printk("KV: Searching pear\n");
             key = kmalloc(MAX_KEY_SIZE*sizeof(char), GFP_KERNEL);
             val = kmalloc(MAX_VAL_SIZE*sizeof(char), GFP_KERNEL);
 
@@ -490,7 +434,7 @@ loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
                 }
             }
 
-            printk("KV: userbfff %s\n", userBuf);
+            printk("KV_SEEK: Input buffer: %s\n", userBuf);
     while (i < MAX_KEY_SIZE+MAX_VAL_SIZE && userBuf[++i]);
             keyLen = spaceIndex + 1;
             valLen = i - spaceIndex;
@@ -505,12 +449,13 @@ loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
             }
             val[valLen-1]='\0';
 
-            printk("KV:  key %s    val %s\n", key, val);
+            printk("KV_SEEK: Searching for pair {%s, %s}\n", key, val);
 
             firstMatchingPair = find_key_val(keyVault, uid, key, val);
-                printk("KV: no comprenday   %p\n", firstMatchingPair);
+            printk("KV_SEEK: first pair ptr:  %p\n", firstMatchingPair);
             if (firstMatchingPair != NULL) {
                 userVault->fp = firstMatchingPair;
+                retval = 1;
             }
 
             kfree(key);
