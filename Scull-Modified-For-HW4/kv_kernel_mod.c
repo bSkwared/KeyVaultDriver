@@ -365,122 +365,60 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
  *         parameter which indicates which action to take.
  */
 long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
-//
-//	int err    = 0, tmp;
-//	int retval = 0;
-//    
-//	/*
-//	 * extract the type and number bitfields, and don't decode
-//	 * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
-//	 */
-//	if (_IOC_TYPE(cmd) != SCULL_IOC_MAGIC) return -ENOTTY;
-//	if (_IOC_NR(cmd)   >  SCULL_IOC_MAXNR) return -ENOTTY;
-//
-//	/*
-//	 * the direction is a bitmask, and VERIFY_WRITE catches R/W
-//	 * transfers. `Type' is user-oriented, while
-//	 * access_ok is kernel-oriented, so the concept of "read" and
-//	 * "write" is reversed
-//	 */
-//	if (_IOC_DIR(cmd) & _IOC_READ) {
-//		err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
-//	} else if (_IOC_DIR(cmd) & _IOC_WRITE) {
-//		err = !access_ok(VERIFY_READ,  (void __user *)arg, _IOC_SIZE(cmd));
-//	}
-//
-//	/* exit on error */
-//	if (err) return -EFAULT;
-//
-//	/* parse the incoming command */
-//	switch(cmd) {
-//
-// 	  /* Reset: values are compile-time defines */
-//	  case SCULL_IOCRESET:
-//		kv_mod_quantum = SCULL_QUANTUM;
-//		kv_mod_qset    = SCULL_QSET;
-//		break;
-//        
-// 	  /* Set: arg points to the value */
-//	  case SCULL_IOCSQUANTUM:
-//		  if (! capable (CAP_SYS_ADMIN))
-//			  return -EPERM;
-//		  retval = __get_user(kv_mod_quantum, (int __user *)arg);
-//		  break;
-//
-// 	  /* Tell: arg is the value */
-//	  case SCULL_IOCTQUANTUM:
-//		  if (! capable (CAP_SYS_ADMIN))
-//			  return -EPERM;
-//		  kv_mod_quantum = arg;
-//		  break;
-//
-// 	  /* Get: arg is pointer to result */
-//	  case SCULL_IOCGQUANTUM:
-//		  retval = __put_user(kv_mod_quantum, (int __user *)arg);
-//		  break;
-//
-//     /* Query: return it (it's positive) */
-//	  case SCULL_IOCQQUANTUM:
-//		  return kv_mod_quantum;
-//
-//     /* eXchange: use arg as pointer; requires user to have root privilege */
-//	  case SCULL_IOCXQUANTUM:
-//		  if (! capable (CAP_SYS_ADMIN))
-//			  return -EPERM;
-//		  tmp = kv_mod_quantum;
-//		  retval = __get_user(kv_mod_quantum, (int __user *)arg);
-//		  if (retval == 0)
-//			  retval = __put_user(tmp, (int __user *)arg);
-//		  break;
-//
-//     /* sHift: like Tell + Query; also requires root access */
-//	  case SCULL_IOCHQUANTUM:
-//		  if (! capable (CAP_SYS_ADMIN))
-//			  return -EPERM;
-//		  tmp = kv_mod_quantum;
-//		  kv_mod_quantum = arg;
-//		  return tmp;
-//        
-//	  case SCULL_IOCSQSET:
-//		  if (! capable (CAP_SYS_ADMIN))
-//			  return -EPERM;
-//		  retval = __get_user(kv_mod_qset, (int __user *)arg);
-//		  break;
-//
-//	  case SCULL_IOCTQSET:
-//		  if (! capable (CAP_SYS_ADMIN))
-//			  return -EPERM;
-//		  kv_mod_qset = arg;
-//		  break;
-//
-//	  case SCULL_IOCGQSET:
-//		  retval = __put_user(kv_mod_qset, (int __user *)arg);
-//		  break;
-//
-//	  case SCULL_IOCQQSET:
-//		  return kv_mod_qset;
-//
-//	  case SCULL_IOCXQSET:
-//		  if (! capable (CAP_SYS_ADMIN))
-//			  return -EPERM;
-//		  tmp = kv_mod_qset;
-//		  retval = __get_user(kv_mod_qset, (int __user *)arg);
-//		  if (retval == 0)
-//			  retval = put_user(tmp, (int __user *)arg);
-//		  break;
-//
-//	  case SCULL_IOCHQSET:
-//		  if (! capable (CAP_SYS_ADMIN))
-//			  return -EPERM;
-//		  tmp = kv_mod_qset;
-//		  kv_mod_qset = arg;
-//		  return tmp;
-//
-//     /* redundant, as cmd was checked against MAXNR */
-//	  default:
-//		  return -ENOTTY;
-//	}
-//
+
+	int err    = 0, tmp;
+	int retval = 0;
+    
+	/*
+	 * extract the type and number bitfields, and don't decode
+	 * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
+	 */
+	if (_IOC_TYPE(cmd) != SCULL_IOC_MAGIC) return -ENOTTY;
+	if (_IOC_NR(cmd)   >  SCULL_IOC_MAXNR) return -ENOTTY;
+
+	/*
+	 * the direction is a bitmask, and VERIFY_WRITE catches R/W
+	 * transfers. `Type' is user-oriented, while
+	 * access_ok is kernel-oriented, so the concept of "read" and
+	 * "write" is reversed
+	 */
+	if (_IOC_DIR(cmd) & _IOC_READ) {
+		err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
+	} else if (_IOC_DIR(cmd) & _IOC_WRITE) {
+		err = !access_ok(VERIFY_READ,  (void __user *)arg, _IOC_SIZE(cmd));
+	}
+
+	/* exit on error */
+	if (err) return -EFAULT;
+
+	/* parse the incoming command */
+	switch(cmd) {
+
+ 	  /* Reset: values are compile-time defines */
+	  case KV_SEEK_KEY:
+		kv_mod_quantum = SCULL_QUANTUM;
+		kv_mod_qset    = SCULL_QSET;
+		break;
+        
+ 	  /* Set: arg points to the value */
+	  case KV_SEEK_PAIR:
+		  if (! capable (CAP_SYS_ADMIN))
+			  return -EPERM;
+		  retval = __get_user(kv_mod_quantum, (int __user *)arg);
+		  break;
+
+ 	  /* Tell: arg is the value */
+	  case KV_NUM_KEYS:
+		  if (! capable (CAP_SYS_ADMIN))
+			  return -EPERM;
+		  kv_mod_quantum = arg;
+		  break;
+
+     /* redundant, as cmd was checked against MAXNR */
+	  default:
+		  return -ENOTTY;
+	}
+
 	return 11;
 }
 
