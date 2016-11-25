@@ -114,9 +114,9 @@ long    kv_mod_ioctl (struct file *filp, unsigned int cmd, unsigned long arg);
  * SEEK_PAIR Set fp to first node with specified key/val pair
  * NUM_KEYS  Get number of keys used
  */
-#define KV_SEEK_KEY   _IO  (SCULL_IOC_MAGIC,   0, int)
-#define KV_SEEK_PAIR  _IOW (SCULL_IOC_MAGIC,   1, int)
-#define KV_NUM_KEYS   _IO  (SCULL_IOC_MAGIC,   2     )
+#define KV_SEEK_KEY   _IO  (SCULL_IOC_MAGIC,   0,      )
+#define KV_SEEK_PAIR  _IO  (SCULL_IOC_MAGIC,   1,      )
+#define KV_NUM_KEYS   _IOW (SCULL_IOC_MAGIC,   2, char*)
 #define KV_IOC_MAXNR                           2
 
 #endif /* _SCULL_H_ */
