@@ -4,9 +4,10 @@
  * Purpose: Supports HW4 for CS3320 */
 #ifndef KV_H
 #define KV_H
-#define MAX_KEY_SIZE 20
-#define MAX_VAL_SIZE 20
-#define MAX_KEY_USER 20
+#define MAX_KEY_SIZE  20
+#define MAX_VAL_SIZE  20
+#define MAX_PAIR_SIZE MAX_KEY_SIZE+MAX_VAL_SIZE
+#define MAX_KEY_USER  20
 
 #define FORWARD       0
 #define REVERSE       1

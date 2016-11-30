@@ -61,69 +61,54 @@ struct kv_mod_dev *kv_mod_device = NULL;
  * Release the memory held by the kv_mod device; must be called with the device
  * semaphore held.  Requires that dev not be NULL
  */
-//void kv_mod_split_pair(char* pair, char** key, char** val) {
-//  struct kv_mod_qset *next, *dptr;
-//  int qset = dev->qset;
-//  int i;
-//
-//   /* release all the list items */
-//  for (dptr = dev->data; dptr; dptr = next) {
-//
-//      /* if list item has associated quantums, release memory for those also */
-//      if (dptr->data) {
-//
-//          /* walk qset, releasing each */
-//          for (i = 0; i < qset; i++) {
-//              kfree(dptr->data[i]);
-//          }
-//
-//          /* then release array of pointers to the quantums and NULL terminate */
-//          kfree(dptr->data);
-//          dptr->data = NULL;
-//      }
-//
-//      /* advance to next item in list */
-//      next = dptr->next;
-//      kfree(dptr);
-//  }
-//
-//  /* set the dev fields to initial values */
-//  dev->size    = 0;
-//  dev->quantum = kv_mod_quantum;
-//  dev->qset    = kv_mod_qset;
-//  dev->data    = NULL;
-//
-//    return 0;
-//}
+void kv_mod_split_pair(char* pair, char* key, char* val) {
+
+    const char SPLIT_CHAR = ',';
+
+    int i;
+    int splitIndex = 0;
+
+    for (i = 0; i < MAX_PAIR_SIZE; ++i) {
+        if (pair[i] == SPLIT_CHAR) {
+            splitIndex = i;
+            break;
+        }
+    }
+
+    pair[splitIndex] = '\0';
+
+    strncpy(pair, key);
+    strncpy(pair+splitIndex+1, val);
+
+    pair[splitIndex] = SPLIT_CHAR;
+
+    return;
+}
 
 /*
  * Open: to open the device is to initialize it for the remaining methods.
  */
 int kv_mod_open(struct inode *inode, struct file *filp) {
-//
-//   /* the device this function is handling (one of the kv_mod_devices) */
+
+   /* the device this function is handling (one of the kv_mod_devices) */
     struct kv_mod_dev *dev;
-//
-//  /* we need the kv_mod_dev object (dev), but the required prototpye
-//      for the open method is that it receives a pointer to an inode.
-//      now an inode contains a struct cdev (the field is called
-//      i_cdev) and we can use this field with the container_of macro
-//      to obtain the kv_mod_dev object (since kv_mod_dev also contains
-//      a cdev object.
-//    */
+
+  /* we need the kv_mod_dev object (dev), but the required prototpye
+      for the open method is that it receives a pointer to an inode.
+      now an inode contains a struct cdev (the field is called
+      i_cdev) and we can use this field with the container_of macro
+      to obtain the kv_mod_dev object (since kv_mod_dev also contains
+      a cdev object.
+    */
     dev = container_of(inode->i_cdev, struct kv_mod_dev, cdev);
-//
-//  /* so that we don't need to use the container_of() macro repeatedly,
-//      we save the handle to dev in the file's private_data for other methods.
-//   */
+
+  /* so that we don't need to use the container_of() macro repeatedly,
+      we save the handle to dev in the file's private_data for other methods.
+   */
     filp->private_data = dev;
     dev->readCount = 5;
 
-   // filp->private_data = &(kv_mod_device->vault.ukey_data[get_current_user()->uid.val]);
     
-    /***   I DONT THINK WE NEED THIS CAUSE DONT ERASE ON WRITE ****/
-//
-//  /* now trim to 0 the length of the device if open was write-only */
     if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
     int uid = get_current_user()->uid.val;
 
@@ -135,8 +120,8 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
     } else {
         userVault->fp = NULL;
     }
-//
-//      /* release the semaphore */
+
+      /* release the semaphore */
     up(&dev->sem);
 
     return 0;
@@ -395,8 +380,6 @@ loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
 
     struct kv_mod_dev  *dev  = filp->private_data; 
 
-//    int spaceIndex = 0;
-//    char* userBuf;
     int i;
             printk("KV_SEEK: type:  %d\n", dev->queryType);
 
@@ -405,15 +388,16 @@ loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
     struct key_vault* keyVault  = &(dev->vault);
     struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
 
-            char* key;
-            char* val;
-            char* userBuf = dev->keyValQuery;
-            struct kv_list* keyStart;
-            int t;
-            struct kv_list* firstMatchingPair;
-            int spaceIndex = 0;
-            int keyLen = spaceIndex + 1;
-            int valLen = i - spaceIndex;
+    char* key;
+    char* val;
+    char* userBuf = dev->keyValQuery;
+    struct kv_list* keyStart;
+    int t;
+    struct kv_list* firstMatchingPair;
+    int spaceIndex = 0;
+    int keyLen = spaceIndex + 1;
+    int valLen = i - spaceIndex;
+
     switch (dev->queryType) {
         case 1:
             keyStart = find_key(keyVault, uid, dev->keyValQuery, &t);
