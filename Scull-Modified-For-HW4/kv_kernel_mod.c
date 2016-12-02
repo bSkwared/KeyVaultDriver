@@ -435,12 +435,12 @@ void kv_mod_cleanup_module(void) {
 
        /* Get rid of our char dev entries by first deallocating memory and then
        * deleting them from the kernel */
+        close_vault(&kv_mod_device->vault);
         cdev_del(&(kv_mod_device->cdev));
 
         /* free the referencing structures */
         kfree(kv_mod_device);
     }
-    //close_vault(&kv_mod_device->vault);
 
     /* cleanup_module is never called if registering failed */
     unregister_chrdev_region(devno, kv_mod_nr_devs);
