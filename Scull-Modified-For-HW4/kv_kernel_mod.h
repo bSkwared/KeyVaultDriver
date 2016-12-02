@@ -15,8 +15,8 @@
  * $Id: kv_mod.h,v 1.15 2004/11/04 17:51:18 rubini Exp $
  */
 
-#ifndef _SCULL_H_
-#define _SCULL_H_
+#ifndef _KV_MOD_H_
+#define _KV_MOD_H_
 
 #include <linux/ioctl.h> /* needed for the _IOW etc stuff used later */
 #include "kv.h"
@@ -25,7 +25,7 @@
  * Macros to help debugging
  */
 #undef PDEBUG             /* undef it, just in case */
-#ifdef SCULL_DEBUG
+#ifdef KV_MOD_DEBUG
 #  ifdef __KERNEL__
      /* This one if debugging is on, and kernel space */
 #    define PDEBUG(fmt, args...) printk( KERN_DEBUG "kv_mod: " fmt, ## args)
@@ -40,30 +40,14 @@
 #undef PDEBUGG
 #define PDEBUGG(fmt, args...) /* nothing: it's a placeholder */
 
-#ifndef SCULL_MAJOR
-#define SCULL_MAJOR 0   /* dynamic major by default */
+#ifndef KV_MOD_MAJOR
+#define KV_MOD_MAJOR 0   /* dynamic major by default */
 #endif
 
-#ifndef SCULL_NR_DEVS
-#define SCULL_NR_DEVS 4    /* kv_mod0 through kv_mod3 */
+#ifndef KV_MOD_SIZE
+#define KV_MOD_SIZE 10000   /* dynamic major by default */
 #endif
 
-/*
- * The bare device is a variable-length region of memory.
- * Use a linked list of indirect blocks.
- *
- * "kv_mod_dev->data" points to an array of pointers, each
- * pointer refers to a memory area of SCULL_QUANTUM bytes.
- *
- * The array (quantum-set) is SCULL_QSET long.
- */
-#ifndef SCULL_QUANTUM
-#define SCULL_QUANTUM 4000
-#endif
-
-#ifndef SCULL_QSET
-#define SCULL_QSET    1000
-#endif
 
 struct kv_mod_dev {
 	//struct key_vault    data;      /* Pointer to first quantum set     */
@@ -120,4 +104,4 @@ long    kv_mod_ioctl (struct file *filp, unsigned int cmd, unsigned long arg);
 #define KV_NUM_KEYS   _IO  (KV_IOC_MAGIC,   2       )
 #define KV_IOC_MAXNR                        2
 
-#endif /* _SCULL_H_ */
+#endif /* _KV_MOD_H_ */

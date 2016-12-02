@@ -38,18 +38,11 @@
 /*
  * Our parameters which can be set at load time.
  */
-#define KV_MOD_QUANTUM SCULL_QUANTUM
 int kv_mod_major   = 0;
 int kv_mod_minor   = 0;
-int kv_mod_nr_devs = SCULL_NR_DEVS;
-int kv_mod_quantum = SCULL_QUANTUM;
-int kv_mod_qset    = SCULL_QSET;
 
 module_param(kv_mod_major,   int, S_IRUGO);
 module_param(kv_mod_minor,   int, S_IRUGO);
-module_param(kv_mod_nr_devs, int, S_IRUGO);
-module_param(kv_mod_quantum, int, S_IRUGO);
-module_param(kv_mod_qset,    int, S_IRUGO);
 
 MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet modified K. Shomper");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -187,6 +180,8 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     for (i = 0; i < MAX_KEY_SIZE; ++i) {
         if (userBuf[i] == ' ') {
             hasSpace = 1;
+            break;
+        } else if (userBuf[0] == '\0') {
             break;
         }
     }
@@ -385,6 +380,7 @@ loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
                 if (firstMatchingPair != NULL) {
                     userVault->fp = firstMatchingPair;
                 }
+                printk("KV_SEEK: Found pair {%s, %s}\n", userVault->fp->kv.key, userVault->fp->kv.val);
             }
 
             dev->queryType = 0;
@@ -443,7 +439,7 @@ void kv_mod_cleanup_module(void) {
     }
 
     /* cleanup_module is never called if registering failed */
-    unregister_chrdev_region(devno, kv_mod_nr_devs);
+    unregister_chrdev_region(devno, 4);
 }
 
 
@@ -473,12 +469,12 @@ int kv_mod_init_module(void) {
     * directed otherwise at load time.  Also get range of minors to work with.
     */
     if (kv_mod_major == 0) {
-        result      = alloc_chrdev_region(&dev,kv_mod_minor,kv_mod_nr_devs,"kv_mod");
+        result      = alloc_chrdev_region(&dev,kv_mod_minor,4,"kv_mod");
         kv_mod_major = MAJOR(dev);
         kv_mod_minor = MINOR(dev);
     } else {
         dev    = MKDEV(kv_mod_major, kv_mod_minor);
-        result = register_chrdev_region(dev, kv_mod_nr_devs, "kv_mod");
+        result = register_chrdev_region(dev, 4, "kv_mod");
     }
 
     /* report failue to aquire major number */
@@ -491,7 +487,6 @@ int kv_mod_init_module(void) {
      * allocate the devices -- we can't have them static, as the number
      * can be specified at load time
      */
-    //kv_mod_devices = kmalloc(kv_mod_nr_devs*sizeof(struct kv_mod_dev), GFP_KERNEL);
     kv_mod_device = kmalloc(sizeof(struct kv_mod_dev), GFP_KERNEL);
 
     /* exit if memory allocation fails */
@@ -505,13 +500,10 @@ int kv_mod_init_module(void) {
 
     /* Initialize each device. */
 
-    //kv_mod_device->quantum = kv_mod_quantum;
-    //kv_mod_device->qset    = kv_mod_qset;
     sema_init(&(kv_mod_device->sem), 1);
     kv_mod_setup_cdev(kv_mod_device, 0);
-    //kv_mod_device->readCount = 5;
     
-    if (!init_vault(&(kv_mod_device->vault), KV_MOD_QUANTUM)) {
+    if (!init_vault(&(kv_mod_device->vault), KV_MOD_SIZE)) {
         goto fail;
     }
 
