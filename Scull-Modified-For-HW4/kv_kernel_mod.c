@@ -12,6 +12,9 @@
  * by O'Reilly & Associates.   No warranty is attached;
  * we cannot take responsibility for errors or fitness for use.
  *
+ * Modified: Blake Lasky and JT Deane
+ *           Dec 2016
+ *
  */
 
 #include <linux/module.h>
@@ -76,11 +79,17 @@ int kv_mod_open(struct inode *inode, struct file *filp) {
     if (down_interruptible(&dev->sem)) return -ERESTARTSYS;
     int uid = get_current_user()->uid.val;
 
+    // Entire vault
     struct key_vault* keyVault  = &(dev->vault);
+
+    // User's vault
     struct kv_list_h* userVault = &(dev->vault.ukey_data[uid-1]);
     
+    // User has some data, set fp to first data
     if (userVault->data != NULL) {
         userVault->fp = userVault->data[0];
+
+    // User does not have data, set to null
     } else {
         userVault->fp = NULL;
     }
@@ -122,7 +131,8 @@ ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
     
     struct kv_list* node = userVault->fp;
     
-    
+
+    // We have reached the end of their keyvault
     if (node == NULL) {
         printk("KV_READ: retern cause null node\n");
         up(&dev->sem);
@@ -130,21 +140,26 @@ ssize_t kv_mod_read(struct file *filp, char __user *buf, size_t count,
     }
 
 
+    /*** Move FP ***/
+    // Last value for this key, get next key
     if (node->next == NULL) {
         userVault->fp = next_key(keyVault, uid, userVault->fp);
+
+    // Still more values with this key
     } else {
         userVault->fp = node->next;
     }
 
-    int keyLen = strlen(node->kv.key);
-    int valLen = strlen(node->kv.val);
 
-    char* outBuf = kmalloc((keyLen + valLen + 8) * sizeof(char), GFP_KERNEL);
+    /*** Get data ***/
+    // Put key from fp into outBuf
+    char* outBuf = kmalloc((MAX_KEY_SIZE + MAX_VAL_SIZE) * sizeof(char), GFP_KERNEL);
     sprintf(outBuf, "%s %s", node->kv.key, node->kv.val);
 
-    copy_to_user(buf, outBuf, keyLen+valLen+8);
-
+    // Copy outBuf to user
     int retval = strlen(outBuf);
+    copy_to_user(buf, outBuf, retval);
+
     kfree(outBuf);
 
     up(&dev->sem);
@@ -163,19 +178,21 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     struct kv_list_h*   userVault   = &(dev->vault.ukey_data[uid-1]);
     int i;
 
+    /*** Copy buffer from userspace to kernel space ***/
     char* userBuf;
     userBuf = kmalloc(MAX_PAIR_SIZE * sizeof(char), GFP_KERNEL);
     copy_from_user(userBuf, buf, MAX_PAIR_SIZE);
     
 
-    char* inKey, *inVal;
-
-    inKey = kmalloc(MAX_KEY_SIZE*sizeof(char), GFP_KERNEL);
-    inVal = kmalloc(MAX_VAL_SIZE*sizeof(char), GFP_KERNEL);
+    /*** Get key and val from userBuf ***/
+    char* inKey = kmalloc(MAX_KEY_SIZE*sizeof(char), GFP_KERNEL);
+    char* inVal = kmalloc(MAX_VAL_SIZE*sizeof(char), GFP_KERNEL);
     inKey[0] = 0;
 
     sscanf(userBuf, "%s %s", inKey, inVal);
 
+
+    // See if there is a space or are we supposed to do a delete
     int hasSpace = 0;
     for (i = 0; i < MAX_KEY_SIZE; ++i) {
         if (userBuf[i] == ' ') {
@@ -188,6 +205,7 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
 
 
     if (hasSpace == TRUE) {
+        /*** Do the insert ***/
         insert_pair(keyVault, uid, inKey, inVal);
         printk(KERN_WARNING "{%s, %s}\n", inKey, inVal);
 
@@ -195,27 +213,37 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
         printk("INSERTED: %s   %s\n", userVault->fp->kv.key, userVault->fp->kv.val);
 
     } else {
+        /*** Do the delete ***/
         printk("KV_WRITE: do delete\n");
         struct kv_list* newFp;
+
+        // Check if EOF
         if (userVault->fp == NULL) {
             printk("KV_WRITE_DEL: fp already eof\n");
             newFp = NULL;
 
         } else {
+            // Not EOF, so delete at fp
+            
+            /*** Get next pair ***/
             if (userVault->fp->next != NULL) {
+                // Next Value
                 newFp = userVault->fp->next;
                 printk("KV_WRITE_DEL: next val\n");
             } else {
+                // Next Key
                 newFp = next_key(keyVault, uid, userVault->fp);
                 printk("KV_WRITE_DEL: next key\n");
             }
+
+            /*** Delete pair at fp ***/
             printk("KV_WRITE_DEL: deleting {%s, %s}\n", userVault->fp->kv.val, userVault->fp->kv.key);
             delete_pair(keyVault, uid, userVault->fp->kv.key, userVault->fp->kv.val);
         }
 
-        
-        
-        if ((userVault->fp = newFp) != NULL) {
+        /*** Move fp to newFP ***/
+        userVault->fp = newFp;
+        if (userVault->fp != NULL) {
             printk("KV_WRITE_DEL: newFp {%s, %s}\n", userVault->fp->kv.key, userVault->fp->kv.val);
         }
     }
@@ -224,9 +252,8 @@ ssize_t kv_mod_write(struct file *filp, const char __user *buf, size_t count,
     kfree(inVal);
     kfree(inKey);
     kfree(userBuf);
+
     up(&dev->sem);
-
-
     return count;
 }
 
@@ -281,21 +308,21 @@ long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
     /* parse the incoming command */
     switch(cmd) {
 
-      /* Reset: values are compile-time defines */
+      /* Set fp to first pair with key key */
       case KV_SEEK_KEY:
         copy_from_user(dev->keyValQuery, (char*)arg, MAX_KEY_SIZE);
         dev->queryType = 1;
         printk("KV_IOCTL: SEEK_KEY\n");
         break;
         
-      /* Set: arg points to the value */
+      /* Set fp to first pair that matches key val */
       case KV_SEEK_PAIR:
         copy_from_user(dev->keyValQuery, (char*)arg, MAX_KEY_SIZE+MAX_VAL_SIZE);
         dev->queryType = 2;
         printk("KV_IOCTL: SEEK_PAIR\n");
         break;
 
-      /* Tell: arg is the value */
+      /* Return number of keys */
       case KV_NUM_KEYS:
         dev->queryType = 0;
         retval = num_keys(keyVault, uid);
@@ -320,10 +347,7 @@ long kv_mod_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
  */
 loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
 
-
-
     struct kv_mod_dev  *dev  = filp->private_data; 
-
 
     int uid = get_current_user()->uid.val;
 
@@ -335,17 +359,19 @@ loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
     char* key;
     char* val;
     char* userBuf = dev->keyValQuery;
-    struct kv_list* keyStart;
+    struct kv_list* newFp;
     int t;
     struct kv_list* firstMatchingPair;
     int i;
 
     printk("KV_SEEK: starting seek of type %d\n", dev->queryType);
 
+    // Parse key and val from userBuf
     key = kmalloc(MAX_KEY_SIZE*sizeof(char), GFP_KERNEL);
     val = kmalloc(MAX_VAL_SIZE*sizeof(char), GFP_KERNEL);
 
     sscanf(userBuf, "%s %s", key, val);
+
 
     // See if there is actually a pair
     int hasSpace = 0;
@@ -356,40 +382,29 @@ loff_t kv_mod_llseek(struct file *filp, loff_t off, int whence) {
         }
     }
 
-
     switch (dev->queryType) {
 
         // Find Key
         case 1:
-            keyStart = find_key(keyVault, uid, key, &t);
-            if (keyStart != NULL) {
-                userVault->fp = keyStart;
-            }
-            dev->queryType = 0;
+            newFp = find_key(keyVault, uid, key, &t);
             break;
 
         // Find Pair
         case 2:
-
-
             printk("KV_SEEK: Searching for pair {%s, %s}\n", key, val);
+            // Check if valid pair
             if (hasSpace == TRUE) {
-
-                firstMatchingPair = find_key_val(keyVault, uid, key, val);
-                printk("KV_SEEK: first pair ptr:  %p\n", firstMatchingPair);
-                if (firstMatchingPair != NULL) {
-                    userVault->fp = firstMatchingPair;
-                }
-                printk("KV_SEEK: Found pair {%s, %s}\n", userVault->fp->kv.key, userVault->fp->kv.val);
+                newFp = find_key_val(keyVault, uid, key, val);
             }
-
-            dev->queryType = 0;
-
             break;
         default:
             break;
     }
 
+    if (newFp != NULL) {
+        userVault->fp = newFp;
+    }
+    dev->queryType = 0;
 
     kfree(key);
     kfree(val);

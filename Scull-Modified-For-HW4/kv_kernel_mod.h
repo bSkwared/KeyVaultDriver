@@ -13,6 +13,10 @@
  * we cannot take responsibility for errors or fitness for use.
  *
  * $Id: kv_mod.h,v 1.15 2004/11/04 17:51:18 rubini Exp $
+ *
+ * Modified: Blake Lasky and JT Deane
+ *           Dec 2016
+ *
  */
 
 #ifndef _KV_MOD_H_
