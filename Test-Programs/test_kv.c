@@ -25,6 +25,16 @@
 #define KV_SEEK_PAIR  _IOW (KV_IOC_MAGIC,   1, char*)
 #define KV_NUM_KEYS   _IO  (KV_IOC_MAGIC,   2       )
 
+
+void add(int fd, const char* str) {
+    if (write(fd, str, 1) != 1) {
+        perror("writing to file");
+        printf("ERROR: Tests failed during writes.\n");
+        exit(1);
+    }
+}
+
+
 int main () {
     char buf[BUF_SIZE];
     char key[MAX_KEY_SIZE] = "";
@@ -35,7 +45,7 @@ int main () {
 
     int i;
     for (i = 0; i < OPEN_TIMES; ++i) {
-        if ((fd = open ("/dev/kv_mod", O_RDWR)) == -1) {
+        if (fd = open ("/dev/kv_mod", O_RDWR)) {
             perror("opening file");
             printf("ERROR: Tests failed during opening.\n");
             return -1;
@@ -49,6 +59,32 @@ int main () {
 
         close(fd);
     }
+
+
+    if (fd = open("/dev/kv_mod", O_RDWR)) {
+        perror("opening file");
+        printf("ERROR: Tests failed during open.\n");
+        return -1;
+    }
+
+
+    add(fd, "key,val");
+
+
+
+
+
+
+    //TODO test write
+    //TODO test read
+
+
+
+
+    // TODO fill vault and test ioctl and llseek
+
+    //TODO test ioctl
+    //TODO test llseek
 
    /* printf("Printing keys in vault:\n");
     i  = 1;

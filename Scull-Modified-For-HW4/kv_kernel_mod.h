@@ -95,7 +95,6 @@ extern int kv_mod_qset;
 /*
  * Prototypes for shared functions
  */
-int     kv_mod_trim  (struct kv_mod_dev *dev);
 ssize_t kv_mod_read  (struct file *filp, char __user *buf, size_t count,
                      loff_t *f_pos);
 ssize_t kv_mod_write (struct file *filp, const char __user *buf, size_t count,
